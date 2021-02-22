@@ -1,16 +1,15 @@
-use rand::{distributions::Distribution, Rng, SeedableRng};
-use rand_distr::Normal;
-use rand_pcg::{Pcg32, Pcg64};
+use rand::{distributions::Distribution, Rng};
+use rand_pcg::Pcg32;
 use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::rc::Rc;
 
-pub trait Uncertain<R: Rng + ?Sized = Pcg32> {
+pub trait Uncertain {
     type Value;
 
-    fn sample(&self, rng: &mut R, epoch: usize) -> Self::Value;
+    fn sample<R: Rng>(&self, rng: &mut R, epoch: usize) -> Self::Value;
 
-    fn into_boxed(self) -> BoxedUncertain<Self, R>
+    fn into_boxed(self) -> BoxedUncertain<Self>
     where
         Self: 'static + Sized,
         Self::Value: Clone,
@@ -23,10 +22,10 @@ pub trait Uncertain<R: Rng + ?Sized = Pcg32> {
 
     /// Takes an uncertain value and produces another which
     /// generates values by calling a closure when sampling.
-    fn map<O, F>(self, func: F) -> Map<Self, F>
+    fn map<F>(self, func: F) -> Map<Self, F>
     where
         Self: Sized,
-        F: Fn(Self::Value) -> O,
+        F: Fn(Self::Value),
     {
         Map {
             uncertain: self,
@@ -38,7 +37,7 @@ pub trait Uncertain<R: Rng + ?Sized = Pcg32> {
     fn join<U, F>(self, other: U, func: F) -> Join<Self, U, F>
     where
         Self: Sized,
-        U: Uncertain<R>,
+        U: Uncertain,
         F: Fn(Self::Value, U::Value),
     {
         Join {
@@ -53,26 +52,24 @@ pub trait Uncertain<R: Rng + ?Sized = Pcg32> {
     fn add<U>(self, other: U) -> Sum<Self, U>
     where
         Self: Sized,
-        U: Uncertain<R>,
+        U: Uncertain,
         Self::Value: std::ops::Add<U::Value>,
     {
         Sum { a: self, b: other }
     }
 }
 
-pub struct BoxedUncertain<U, R>
+pub struct BoxedUncertain<U>
 where
-    R: Rng + ?Sized,
-    U: Uncertain<R>,
+    U: Uncertain,
 {
     ptr: Rc<U>,
     cache: Rc<RefCell<Option<(usize, U::Value)>>>,
 }
 
-impl<U, R> Clone for BoxedUncertain<U, R>
+impl<U> Clone for BoxedUncertain<U>
 where
-    R: Rng + ?Sized,
-    U: Uncertain<R>,
+    U: Uncertain,
 {
     fn clone(&self) -> Self {
         BoxedUncertain {
@@ -82,15 +79,14 @@ where
     }
 }
 
-impl<U, R> Uncertain<R> for BoxedUncertain<U, R>
+impl<U> Uncertain for BoxedUncertain<U>
 where
-    R: Rng + ?Sized,
-    U: Uncertain<R>,
+    U: Uncertain,
     U::Value: Clone,
 {
     type Value = U::Value;
 
-    fn sample(&self, rng: &mut R, epoch: usize) -> Self::Value {
+    fn sample<R: Rng>(&self, rng: &mut R, epoch: usize) -> Self::Value {
         let mut cache = self.cache.borrow_mut();
         if let Some((last_epoch, last_value)) = &*cache {
             if *last_epoch == epoch {
@@ -108,15 +104,14 @@ pub struct Map<U, F> {
     func: F,
 }
 
-impl<R, U, F> Uncertain<R> for Map<U, F>
+impl<U, F> Uncertain for Map<U, F>
 where
-    R: Rng + ?Sized,
-    U: Uncertain<R>,
+    U: Uncertain,
     F: Fn(U::Value),
 {
     type Value = F::Output;
 
-    fn sample(&self, rng: &mut R, epoch: usize) -> Self::Value {
+    fn sample<R: Rng>(&self, rng: &mut R, epoch: usize) -> Self::Value {
         let v = self.uncertain.sample(rng, epoch);
         (self.func)(v)
     }
@@ -128,16 +123,15 @@ pub struct Join<A, B, F> {
     func: F,
 }
 
-impl<A, B, F, R> Uncertain<R> for Join<A, B, F>
+impl<A, B, F> Uncertain for Join<A, B, F>
 where
-    R: Rng + ?Sized,
-    A: Uncertain<R>,
-    B: Uncertain<R>,
+    A: Uncertain,
+    B: Uncertain,
     F: Fn(A::Value, B::Value),
 {
     type Value = F::Output;
 
-    fn sample(&self, rng: &mut R, epoch: usize) -> Self::Value {
+    fn sample<R: Rng>(&self, rng: &mut R, epoch: usize) -> Self::Value {
         let a = self.a.sample(rng, epoch);
         let b = self.b.sample(rng, epoch);
         (self.func)(a, b)
@@ -149,16 +143,15 @@ pub struct Sum<A, B> {
     b: B,
 }
 
-impl<A, B, R> Uncertain<R> for Sum<A, B>
+impl<A, B> Uncertain for Sum<A, B>
 where
-    R: Rng + ?Sized,
-    A: Uncertain<R>,
-    B: Uncertain<R>,
+    A: Uncertain,
+    B: Uncertain,
     A::Value: std::ops::Add<B::Value>,
 {
     type Value = <A::Value as std::ops::Add<B::Value>>::Output;
 
-    fn sample(&self, rng: &mut R, epoch: usize) -> Self::Value {
+    fn sample<R: Rng>(&self, rng: &mut R, epoch: usize) -> Self::Value {
         let a = self.a.sample(rng, epoch);
         let b = self.b.sample(rng, epoch);
         a + b
@@ -173,14 +166,13 @@ where
     _p: PhantomData<T>,
 }
 
-impl<T, D, R> Uncertain<R> for UncertainDistribution<T, D>
+impl<T, D> Uncertain for UncertainDistribution<T, D>
 where
-    R: Rng + ?Sized,
     D: Distribution<T>,
 {
     type Value = T;
 
-    fn sample(&self, rng: &mut R, _epoch: usize) -> Self::Value {
+    fn sample<R: Rng>(&self, rng: &mut R, _epoch: usize) -> Self::Value {
         self.dist.sample(rng)
     }
 }
@@ -200,6 +192,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rand_distr::Normal;
 
     #[test]
     fn clone_shares_values() {
@@ -216,7 +209,7 @@ mod tests {
     fn add() {
         let a: UncertainDistribution<f32, _> = Normal::new(0.0, 1.0).unwrap().into();
         let b: UncertainDistribution<f32, _> = Normal::new(5.0, 1.0).unwrap().into();
-        let c = <UncertainDistribution<f32, _> as Uncertain<Pcg32>>::add(a, b);
+        let c = a.add(b);
 
         let mut rng = Pcg32::new(0xcafef00dd15ea5e5, 0xa02bdbf7bb3c0a7);
         for epoch in 0..10 {
@@ -230,7 +223,7 @@ mod tests {
         let x: UncertainDistribution<f32, _> = Normal::new(10.0, 1.0).unwrap().into();
         let y: UncertainDistribution<f32, _> = Normal::new(5.0, 1.0).unwrap().into();
         let x = x.into_boxed();
-        let a = x.clone().add(y);
+        let a = y.add(x.clone()); //x.clone().add(y);
         let b = a.add(x);
 
         let mut rng = Pcg32::new(0xcafef00dd15ea5e5, 0xa02bdbf7bb3c0a7);
