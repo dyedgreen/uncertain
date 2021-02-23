@@ -1,40 +1,10 @@
 use rand::{distributions::Distribution, Rng};
 use rand_pcg::Pcg32;
-use std::cell::RefCell;
+use std::cell::Cell;
 use std::marker::PhantomData;
 use std::rc::Rc;
 
-const ALPHA: f32 = 1e-8; // prob of rejecting a true null hypothesis
-const BETA: f32 = 1e-8; // prob of accepting a false null hypothesis
-
-const LOWER_LIMIT: f32 = BETA / (1.0 - ALPHA);
-const UPPER_LIMIT: f32 = (1.0 - BETA) / ALPHA;
-
-const STEP_SIZE: usize = 10; // TODO: Tune, 10 is from paper
-const MAX_STEPS: usize = 1000; // TODO: What is good(?)
-
-fn accept_likelyhood(prob: f32, val: bool) -> f32 {
-    let p = 0.5 * (1.0 + prob);
-    if val {
-        p
-    } else {
-        1.0 - p
-    }
-}
-
-fn reject_likelyhood(prob: f32, val: bool) -> f32 {
-    let p = 0.5 * prob;
-    if val {
-        p
-    } else {
-        1.0 - p
-    }
-}
-
-fn log_likelyhood_ratio(prob: f32, val: bool) -> f32 {
-    let ratio = accept_likelyhood(prob, val) / reject_likelyhood(prob, val);
-    ratio.ln()
-}
+mod sprt;
 
 pub trait Uncertain {
     type Value;
@@ -46,15 +16,13 @@ pub trait Uncertain {
     ///
     /// This function evaluates a statistical test by sampling the underlying
     /// uncertain value and determining if it is plausible that it has been
-    /// generated from a [Bernoulli distribution](wiki) with a value of p of
-    /// *at least* `probability`. (I.e. if hypothesis `H_0: p >= probability`
-    /// is plausible.)
+    /// generated from a [Bernoulli distribution](https://en.wikipedia.org/wiki/Bernoulli_distribution)
+    /// with a value of p of *at least* `probability`. (I.e. if hypothesis
+    /// `H_0: p >= probability` is plausible.)
     ///
     /// # Panics
     ///
     /// Panics if `probability <= 0 || probability >= 1`.
-    ///
-    /// [wiki]: https://en.wikipedia.org/wiki/Bernoulli_distribution
     fn pr(&self, probability: f32) -> bool
     where
         Self::Value: Into<bool>,
@@ -72,39 +40,7 @@ pub trait Uncertain {
         if probability <= 0.0 || probability >= 1.0 {
             panic!("Probability {:?} must be in (0, 1)", probability);
         }
-
-        let value = self.sample(rng, 0).into();
-        let mut ratio_sum = log_likelyhood_ratio(probability, value);
-
-        let mut steps: usize = 1;
-
-        let lower = LOWER_LIMIT.ln();
-        let upper = UPPER_LIMIT.ln();
-
-        for step in 0..MAX_STEPS {
-            for n in 0..STEP_SIZE {
-                let epoch = step * STEP_SIZE + n + 1;
-                let value = self.sample(rng, epoch).into();
-                ratio_sum += log_likelyhood_ratio(probability, value);
-                steps += 1;
-            }
-            if ratio_sum <= lower || ratio_sum >= upper {
-                break;
-            }
-        }
-
-        println!(
-            "p = {}, a = {}, b = {}, S = {}, n = {}",
-            probability, lower, upper, ratio_sum, steps
-        );
-
-        if ratio_sum <= lower {
-            true
-        } else {
-            // either we accepted H_1, or we ran
-            // out of samples and can't accept H_0.
-            false
-        }
+        sprt::sequential_probability_ratio_test(probability, self, rng)
     }
 
     fn into_boxed(self) -> BoxedUncertain<Self>
@@ -112,10 +48,7 @@ pub trait Uncertain {
         Self: 'static + Sized,
         Self::Value: Clone,
     {
-        BoxedUncertain {
-            ptr: Rc::new(self),
-            cache: Rc::new(RefCell::new(None)),
-        }
+        BoxedUncertain::new(self)
     }
 
     /// Takes an uncertain value and produces another which
@@ -160,14 +93,29 @@ pub trait Uncertain {
 pub struct BoxedUncertain<U>
 where
     U: Uncertain,
+    U::Value: Clone,
 {
     ptr: Rc<U>,
-    cache: Rc<RefCell<Option<(usize, U::Value)>>>,
+    cache: Rc<Cell<Option<(usize, U::Value)>>>,
+}
+
+impl<U> BoxedUncertain<U>
+where
+    U: Uncertain,
+    U::Value: Clone,
+{
+    fn new(contained: U) -> Self {
+        BoxedUncertain {
+            ptr: Rc::new(contained),
+            cache: Rc::new(Cell::new(None)),
+        }
+    }
 }
 
 impl<U> Clone for BoxedUncertain<U>
 where
     U: Uncertain,
+    U::Value: Clone,
 {
     fn clone(&self) -> Self {
         BoxedUncertain {
@@ -185,14 +133,18 @@ where
     type Value = U::Value;
 
     fn sample<R: Rng>(&self, rng: &mut R, epoch: usize) -> Self::Value {
-        let mut cache = self.cache.borrow_mut();
-        if let Some((last_epoch, last_value)) = &*cache {
-            if *last_epoch == epoch {
-                return last_value.clone();
+        let cache = self.cache.take();
+        let value = match cache {
+            Some((cache_epoch, cache_value)) => {
+                if cache_epoch == epoch {
+                    cache_value
+                } else {
+                    self.ptr.sample(rng, epoch)
+                }
             }
-        }
-        let value = self.ptr.sample(rng, epoch);
-        *cache = Some((epoch, value.clone()));
+            None => self.ptr.sample(rng, epoch),
+        };
+        self.cache.set(Some((epoch, value.clone())));
         value
     }
 }
@@ -369,32 +321,4 @@ mod tests {
         assert!(!more_than_mean.pr(0.8));
         assert!(!more_than_mean.pr(0.9));
     }
-
-    // #[test]
-    // fn add() {
-    //     let a: UncertainDistribution<f32, _> = Normal::new(0.0, 1.0).unwrap().into();
-    //     let b: UncertainDistribution<f32, _> = Normal::new(5.0, 1.0).unwrap().into();
-    //     let c = a.add(b);
-
-    //     let mut rng = Pcg32::new(0xcafef00dd15ea5e5, 0xa02bdbf7bb3c0a7);
-    //     for epoch in 0..10 {
-    //         println!("{:?}", c.sample(&mut rng, epoch));
-    //     }
-    //     assert!(false);
-    // }
-
-    // #[test]
-    // fn reused_add() {
-    //     let x: UncertainDistribution<f32, _> = Normal::new(10.0, 1.0).unwrap().into();
-    //     let y: UncertainDistribution<f32, _> = Normal::new(5.0, 1.0).unwrap().into();
-    //     let x = x.into_boxed();
-    //     let a = y.add(x.clone()); //x.clone().add(y);
-    //     let b = a.add(x);
-
-    //     let mut rng = Pcg32::new(0xcafef00dd15ea5e5, 0xa02bdbf7bb3c0a7);
-    //     for epoch in 0..10 {
-    //         println!("{:?}", b.sample(&mut rng, epoch));
-    //     }
-    //     assert!(false);
-    // }
 }
