@@ -1,3 +1,5 @@
+#![warn(missing_docs)]
+
 //! Computation with uncertain values.
 //!
 //! (TODO)
@@ -5,13 +7,13 @@
 use adapters::*;
 use rand::Rng;
 use rand_pcg::Pcg32;
-use std::cell::Cell;
-use std::rc::Rc;
 
 mod adapters;
+mod boxed;
 mod dist;
 mod sprt;
 
+pub use boxed::BoxedUncertain;
 pub use dist::Distribution;
 
 /// Uncertain value.
@@ -130,13 +132,78 @@ pub trait Uncertain {
         Join::new(self, other, func)
     }
 
-    /// Negate the boolean contained in self.
+    /// Negate the boolean contained in self. This is a shorthand
+    /// for `x.map(|b| !b)`.
+    ///
+    /// # Examples
+    ///
+    /// Inverting a Bernoulli distribution
+    ///
+    /// ```
+    /// use uncertain::{Uncertain, Distribution};
+    /// use rand_distr::Bernoulli;
+    ///
+    /// let x = Distribution::new(Bernoulli::new(0.1).unwrap());
+    /// assert!(x.not().pr(0.9));
+    /// ```
     fn not(self) -> Not<Self>
     where
         Self: Sized,
         Self::Value: Into<bool>,
     {
         Not::new(self)
+    }
+
+    /// Combines two boolean values. This should be preferred over
+    /// `x.join(y, |x, y| x && y)`, since it uses short-circuit logic
+    /// to avoid sampling `y` if `x` is already false.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use uncertain::{Uncertain, Distribution};
+    /// use rand_distr::Bernoulli;
+    ///
+    /// let x = Distribution::new(Bernoulli::new(0.5).unwrap());
+    /// let y = Distribution::new(Bernoulli::new(0.5).unwrap());
+    /// let both = x.and(y);
+    /// assert_eq!(both.pr(0.5), false);
+    /// assert_eq!(both.not().pr(0.5), true);
+    /// ```
+    fn and<U>(self, other: U) -> And<Self, U>
+    where
+        Self: Sized,
+        Self::Value: Into<bool>,
+        U: Uncertain,
+        U::Value: Into<bool>,
+    {
+        And::new(self, other)
+    }
+
+    /// Combines two boolean values. This should be preferred over
+    /// `x.join(y, |x, y| x || y)`, since it uses short-circuit logic
+    /// to avoid sampling `y` if `x` is already true.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use uncertain::{Uncertain, Distribution};
+    /// use rand_distr::Bernoulli;
+    ///
+    /// let x = Distribution::new(Bernoulli::new(0.3).unwrap());
+    /// let y = Distribution::new(Bernoulli::new(0.3).unwrap());
+    /// let either = x.or(y);
+    /// assert_eq!(either.pr(0.5), true);
+    /// assert_eq!(either.not().pr(0.5), false);
+    /// ```
+    fn or<U>(self, other: U) -> Or<Self, U>
+    where
+        Self: Sized,
+        Self::Value: Into<bool>,
+        U: Uncertain,
+        U::Value: Into<bool>,
+    {
+        Or::new(self, other)
     }
 
     /// Combine two uncertain values by computing their
@@ -149,64 +216,32 @@ pub trait Uncertain {
     {
         Sum::new(self, other)
     }
-}
 
-pub struct BoxedUncertain<U>
-where
-    U: Uncertain,
-    U::Value: Clone,
-{
-    ptr: Rc<U>,
-    cache: Rc<Cell<Option<(usize, U::Value)>>>,
-}
-
-impl<U> BoxedUncertain<U>
-where
-    U: Uncertain,
-    U::Value: Clone,
-{
-    fn new(contained: U) -> Self {
-        BoxedUncertain {
-            ptr: Rc::new(contained),
-            cache: Rc::new(Cell::new(None)),
-        }
+    fn sub<U>(self, other: U) -> Difference<Self, U>
+    where
+        Self: Sized,
+        U: Uncertain,
+        Self::Value: std::ops::Sub<U::Value>,
+    {
+        Difference::new(self, other)
     }
-}
 
-impl<U> Clone for BoxedUncertain<U>
-where
-    U: Uncertain,
-    U::Value: Clone,
-{
-    fn clone(&self) -> Self {
-        BoxedUncertain {
-            ptr: self.ptr.clone(),
-            cache: self.cache.clone(),
-        }
+    fn mul<U>(self, other: U) -> Product<Self, U>
+    where
+        Self: Sized,
+        U: Uncertain,
+        Self::Value: std::ops::Mul<U::Value>,
+    {
+        Product::new(self, other)
     }
-}
 
-impl<U> Uncertain for BoxedUncertain<U>
-where
-    U: Uncertain,
-    U::Value: Clone,
-{
-    type Value = U::Value;
-
-    fn sample<R: Rng>(&self, rng: &mut R, epoch: usize) -> Self::Value {
-        let cache = self.cache.take();
-        let value = match cache {
-            Some((cache_epoch, cache_value)) => {
-                if cache_epoch == epoch {
-                    cache_value
-                } else {
-                    self.ptr.sample(rng, epoch)
-                }
-            }
-            None => self.ptr.sample(rng, epoch),
-        };
-        self.cache.set(Some((epoch, value.clone())));
-        value
+    fn div<U>(self, other: U) -> Ratio<Self, U>
+    where
+        Self: Sized,
+        U: Uncertain,
+        Self::Value: std::ops::Div<U::Value>,
+    {
+        Ratio::new(self, other)
     }
 }
 

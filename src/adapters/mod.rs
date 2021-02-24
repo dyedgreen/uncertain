@@ -4,4 +4,4 @@ mod ops;
 
 pub use join::Join;
 pub use map::Map;
-pub use ops::{Not, Sum};
+pub use ops::{And, Difference, Not, Or, Product, Ratio, Sum};
