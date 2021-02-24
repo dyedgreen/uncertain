@@ -1,3 +1,7 @@
+//! Computation with uncertain values.
+//!
+//! (TODO)
+
 use adapters::*;
 use rand::Rng;
 use rand_pcg::Pcg32;
@@ -22,13 +26,36 @@ pub trait Uncertain {
     ///
     /// This function evaluates a statistical test by sampling the underlying
     /// uncertain value and determining if it is plausible that it has been
-    /// generated from a [Bernoulli distribution](https://en.wikipedia.org/wiki/Bernoulli_distribution)
+    /// generated from a [Bernoulli distribution][bernoulli]
     /// with a value of p of *at least* `probability`. (I.e. if hypothesis
     /// `H_0: p >= probability` is plausible.)
+    ///
+    /// The underlying implementation uses the [sequential probability ratio test][sprt],
+    /// which takes the least number of samples necessary to establish or reject
+    /// a hypothesis. In practice this means that usually only `O(10)` samples
+    /// are required.
+    ///
+    /// [bernoulli]: https://en.wikipedia.org/wiki/Bernoulli_distribution
+    /// [sprt]: https://en.wikipedia.org/wiki/Sequential_probability_ratio_test
     ///
     /// # Panics
     ///
     /// Panics if `probability <= 0 || probability >= 1`.
+    ///
+    /// # Examples
+    ///
+    /// Basic usage: test if some event is more likely than not
+    ///
+    /// ```
+    /// use uncertain::{Uncertain, Distribution};
+    /// use rand_distr::Bernoulli;
+    ///
+    /// let x = Distribution::new(Bernoulli::new(0.8).unwrap());
+    /// assert_eq!(x.pr(0.5), true);
+    ///
+    /// let y = Distribution::new(Bernoulli::new(0.3).unwrap());
+    /// assert_eq!(y.pr(0.5), false);
+    /// ```
     fn pr(&self, probability: f32) -> bool
     where
         Self::Value: Into<bool>,
@@ -49,6 +76,30 @@ pub trait Uncertain {
         sprt::sequential_probability_ratio_test(probability, self, rng)
     }
 
+    /// Box this uncertain value, so it can be reused in a calculation. Usually,
+    /// an uncertain value can not be cloned. To ensure that an uncertain value
+    /// can be cloned safely, it has to cache it's sampled value such that if
+    /// it is queried for the same `epoch` twice, it returns the same value.
+    ///
+    /// [`BoxedUncertain`] wraps the uncertain value contained in  `self`, and
+    /// ensures it behaves correctly if sampled repeatedly.
+    ///
+    /// # Examples
+    ///
+    /// Basic usage
+    ///
+    /// ```
+    /// use uncertain::{Uncertain, Distribution};
+    /// use rand_distr::Normal;
+    ///
+    /// let x = Distribution::new(Normal::new(5.0, 2.0).unwrap()).into_boxed();
+    /// let y = Distribution::new(Normal::new(10.0, 5.0).unwrap());
+    /// let a = x.clone().add(y);
+    /// let b = a.add(x);
+    ///
+    /// let bigger_than_twelve = b.map(|v| v > 12.0);
+    /// assert!(bigger_than_twelve.pr(0.5));
+    /// ```
     fn into_boxed(self) -> BoxedUncertain<Self>
     where
         Self: 'static + Sized,
