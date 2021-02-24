@@ -1,8 +1,8 @@
 use crate::Uncertain;
 use rand::Rng;
 
-const D0: f32 = 0.95;
-const D1: f32 = 0.95;
+const D0: f32 = 0.999;
+const D1: f32 = 0.999;
 
 const STEP: usize = 10;
 const MAXS: usize = 1000;
@@ -52,11 +52,6 @@ where
             break;
         }
     }
-
-    println!(
-        "p = {}, lower = {}, upper = {}, ratio = {}, epoch = {}",
-        prob, lower_ln, upper_ln, ratio_ln, epoch
-    );
 
     ratio_ln < lower_ln
 }
