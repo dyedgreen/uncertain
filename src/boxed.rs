@@ -72,7 +72,7 @@ mod tests {
 
     #[test]
     fn cloned_boxed_shares_values() {
-        let x = Distribution::new(Normal::new(10.0, 1.0).unwrap());
+        let x = Distribution::from(Normal::new(10.0, 1.0).unwrap());
         let x = x.into_boxed();
         let y = x.clone();
         let mut rng = Pcg32::new(0xcafef00dd15ea5e5, 0xa02bdbf7bb3c0a7);

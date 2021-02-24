@@ -2,6 +2,9 @@ use crate::Uncertain;
 use rand::Rng;
 use std::marker::PhantomData;
 
+/// Wraps a [`rand::distributions::Distribution`] to create uncertain
+/// values from probability distributions and ensure they have the
+/// correct [`Copy`] and [`Clone`] semantics.
 pub struct Distribution<T, D>
 where
     D: rand::distributions::Distribution<T>,
@@ -14,7 +17,11 @@ impl<T, D> Distribution<T, D>
 where
     D: rand::distributions::Distribution<T>,
 {
-    pub fn new(dist: D) -> Self {
+    /// Construct a new [`impl Uncertain`] from a
+    /// distribution.
+    ///
+    /// [`impl Uncertain`]: Uncertain
+    pub fn from(dist: D) -> Self {
         Self {
             dist,
             _p: PhantomData {},

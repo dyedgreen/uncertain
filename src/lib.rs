@@ -2,7 +2,36 @@
 
 //! Computation with uncertain values.
 //!
-//! (TODO)
+//! When working with values which are not exactly determined, such as sensor data, it
+//! can be difficult to handle uncertainties correctly.
+//!
+//! The [`Uncertain`] trait makes such computations as natural as regular computations:
+//!
+//! ```
+//! use uncertain::{Uncertain, Distribution};
+//! use rand_distr::Normal;
+//!
+//! // Some inputs about which we are not sure
+//! let x = Distribution::from(Normal::new(5.0, 2.0).unwrap());
+//! let y = Distribution::from(Normal::new(7.0, 3.0).unwrap());
+//!
+//! // Do some computations
+//! let distance = x.sub(y).map(|diff: f64| diff.abs());
+//!
+//! // Ask a question about the result
+//! let is_it_far = distance.map(|dist| dist > 2.0);
+//!
+//! // Check how certain the answer is
+//! assert_eq!(is_it_far.pr(0.9), false);
+//! assert_eq!(is_it_far.pr(0.5), true);
+//! ```
+//!
+//! # References
+//!
+//! The [`Uncertain`] trait exported from the library is an implementation of
+//! the paper [`Uncertain<T>`][paper].
+//!
+//! [paper]: https://www.cs.utexas.edu/users/mckinley/papers/uncertainty-asplos-2014.pdf
 
 use adapters::*;
 use rand::Rng;
@@ -16,7 +45,7 @@ mod sprt;
 pub use boxed::BoxedUncertain;
 pub use dist::Distribution;
 
-/// Uncertain value.
+/// An interface for using uncertain values in computations.
 #[must_use = "uncertain values are lazy and do nothing unless queried"]
 pub trait Uncertain {
     /// The type of the contained value.
@@ -35,9 +64,11 @@ pub trait Uncertain {
     /// This is important, if a value is reused within a computation. E.g.
     /// `x ~ P; x + x` is different from `x ~ P; x' ~ P; x + x'`.
     ///
-    /// It is recommended to implement [`rand::distributions::Distribution`] instead
-    /// of this trait since any such type automatically implements `Into<Uncertain>`
-    /// in a correct way.
+    /// If your type is either [`Copy`] or [`Clone`], it is recommended to implement
+    /// [`rand::distributions::Distribution`] instead of this trait since any such type
+    /// automatically implements [`Into<Distribution>`] in a correct way.
+    ///
+    /// [`Into<Distribution>`]: Distribution
     fn sample<R: Rng>(&self, rng: &mut R, epoch: usize) -> Self::Value;
 
     /// Determine if the probability of obtaining `true` form this uncertain
@@ -69,10 +100,10 @@ pub trait Uncertain {
     /// use uncertain::{Uncertain, Distribution};
     /// use rand_distr::Bernoulli;
     ///
-    /// let x = Distribution::new(Bernoulli::new(0.8).unwrap());
+    /// let x = Distribution::from(Bernoulli::new(0.8).unwrap());
     /// assert_eq!(x.pr(0.5), true);
     ///
-    /// let y = Distribution::new(Bernoulli::new(0.3).unwrap());
+    /// let y = Distribution::from(Bernoulli::new(0.3).unwrap());
     /// assert_eq!(y.pr(0.5), false);
     /// ```
     fn pr(&self, probability: f32) -> bool
@@ -111,8 +142,8 @@ pub trait Uncertain {
     /// use uncertain::{Uncertain, Distribution};
     /// use rand_distr::Normal;
     ///
-    /// let x = Distribution::new(Normal::new(5.0, 2.0).unwrap()).into_boxed();
-    /// let y = Distribution::new(Normal::new(10.0, 5.0).unwrap());
+    /// let x = Distribution::from(Normal::new(5.0, 2.0).unwrap()).into_boxed();
+    /// let y = Distribution::from(Normal::new(10.0, 5.0).unwrap());
     /// let a = x.clone().add(y);
     /// let b = a.add(x);
     ///
@@ -160,7 +191,7 @@ pub trait Uncertain {
     /// use uncertain::{Uncertain, Distribution};
     /// use rand_distr::Bernoulli;
     ///
-    /// let x = Distribution::new(Bernoulli::new(0.1).unwrap());
+    /// let x = Distribution::from(Bernoulli::new(0.1).unwrap());
     /// assert!(x.not().pr(0.9));
     /// ```
     fn not(self) -> Not<Self>
@@ -183,8 +214,8 @@ pub trait Uncertain {
     /// use uncertain::{Uncertain, Distribution};
     /// use rand_distr::Bernoulli;
     ///
-    /// let x = Distribution::new(Bernoulli::new(0.5).unwrap());
-    /// let y = Distribution::new(Bernoulli::new(0.5).unwrap());
+    /// let x = Distribution::from(Bernoulli::new(0.5).unwrap());
+    /// let y = Distribution::from(Bernoulli::new(0.5).unwrap());
     /// let both = x.and(y);
     /// assert_eq!(both.pr(0.5), false);
     /// assert_eq!(both.not().pr(0.5), true);
@@ -211,8 +242,8 @@ pub trait Uncertain {
     /// use uncertain::{Uncertain, Distribution};
     /// use rand_distr::Bernoulli;
     ///
-    /// let x = Distribution::new(Bernoulli::new(0.3).unwrap());
-    /// let y = Distribution::new(Bernoulli::new(0.3).unwrap());
+    /// let x = Distribution::from(Bernoulli::new(0.3).unwrap());
+    /// let y = Distribution::from(Bernoulli::new(0.3).unwrap());
     /// let either = x.or(y);
     /// assert_eq!(either.pr(0.5), true);
     /// assert_eq!(either.not().pr(0.5), false);
@@ -238,8 +269,8 @@ pub trait Uncertain {
     /// use uncertain::{Uncertain, Distribution};
     /// use rand_distr::Normal;
     ///
-    /// let x = Distribution::new(Normal::new(1.0, 1.0).unwrap());
-    /// let y = Distribution::new(Normal::new(4.0, 1.0).unwrap());
+    /// let x = Distribution::from(Normal::new(1.0, 1.0).unwrap());
+    /// let y = Distribution::from(Normal::new(4.0, 1.0).unwrap());
     /// assert!(x.add(y).map(|sum| sum >= 5.0).pr(0.5));
     /// ```
     fn add<U>(self, other: U) -> Sum<Self, U>
@@ -262,8 +293,8 @@ pub trait Uncertain {
     /// use uncertain::{Uncertain, Distribution};
     /// use rand_distr::Normal;
     ///
-    /// let x = Distribution::new(Normal::new(7.0, 1.0).unwrap());
-    /// let y = Distribution::new(Normal::new(2.0, 1.0).unwrap());
+    /// let x = Distribution::from(Normal::new(7.0, 1.0).unwrap());
+    /// let y = Distribution::from(Normal::new(2.0, 1.0).unwrap());
     /// assert!(x.sub(y).map(|diff| diff >= 5.0).pr(0.5));
     /// ```
     fn sub<U>(self, other: U) -> Difference<Self, U>
@@ -286,8 +317,8 @@ pub trait Uncertain {
     /// use uncertain::{Uncertain, Distribution};
     /// use rand_distr::Normal;
     ///
-    /// let x = Distribution::new(Normal::new(4.0, 1.0).unwrap());
-    /// let y = Distribution::new(Normal::new(2.0, 1.0).unwrap());
+    /// let x = Distribution::from(Normal::new(4.0, 1.0).unwrap());
+    /// let y = Distribution::from(Normal::new(2.0, 1.0).unwrap());
     /// assert!(x.mul(y).map(|prod| prod >= 4.0).pr(0.5));
     /// ```
     fn mul<U>(self, other: U) -> Product<Self, U>
@@ -310,8 +341,8 @@ pub trait Uncertain {
     /// use uncertain::{Uncertain, Distribution};
     /// use rand_distr::Normal;
     ///
-    /// let x = Distribution::new(Normal::new(100.0, 1.0).unwrap());
-    /// let y = Distribution::new(Normal::new(2.0, 1.0).unwrap());
+    /// let x = Distribution::from(Normal::new(100.0, 1.0).unwrap());
+    /// let y = Distribution::from(Normal::new(2.0, 1.0).unwrap());
     /// assert!(x.div(y).map(|prod| prod <= 50.0).pr(0.5));
     /// ```
     fn div<U>(self, other: U) -> Ratio<Self, U>
@@ -334,21 +365,21 @@ mod tests {
         let cases: Vec<f32> = vec![0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.89];
         for p in cases {
             let p_true = p + 0.1;
-            let x = Distribution::new(Bernoulli::new(p_true.into()).unwrap());
+            let x = Distribution::from(Bernoulli::new(p_true.into()).unwrap());
             assert!(x.pr(p));
         }
 
         let cases: Vec<f32> = vec![0.1, 0.2, 0.3, 0.4, 0.5];
         for p in cases {
             let p_true_much_higher = p + 0.49;
-            let x = Distribution::new(Bernoulli::new(p_true_much_higher.into()).unwrap());
+            let x = Distribution::from(Bernoulli::new(p_true_much_higher.into()).unwrap());
             assert!(x.pr(p));
         }
 
         let cases: Vec<f32> = vec![0.1, 0.2, 0.3];
         for p in cases {
             let p_tru_way_higher = p + 0.6;
-            let x = Distribution::new(Bernoulli::new(p_tru_way_higher.into()).unwrap());
+            let x = Distribution::from(Bernoulli::new(p_tru_way_higher.into()).unwrap());
             assert!(x.pr(p));
         }
     }
@@ -358,28 +389,28 @@ mod tests {
         let cases: Vec<f32> = vec![0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7];
         for p in cases {
             let p_too_high = p + 0.1;
-            let x = Distribution::new(Bernoulli::new(p.into()).unwrap());
+            let x = Distribution::from(Bernoulli::new(p.into()).unwrap());
             assert!(!x.pr(p_too_high));
         }
 
         let cases: Vec<f32> = vec![0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7];
         for p in cases {
             let p_way_too_high = p + 0.2;
-            let x = Distribution::new(Bernoulli::new(p.into()).unwrap());
+            let x = Distribution::from(Bernoulli::new(p.into()).unwrap());
             assert!(!x.pr(p_way_too_high));
         }
 
         let cases: Vec<f32> = vec![0.1, 0.2, 0.3, 0.4, 0.5];
         for p in cases {
             let p_very_way_too_high = p + 0.49;
-            let x = Distribution::new(Bernoulli::new(p.into()).unwrap());
+            let x = Distribution::from(Bernoulli::new(p.into()).unwrap());
             assert!(!x.pr(p_very_way_too_high));
         }
     }
 
     #[test]
     fn basic_gaussian_pr() {
-        let x = Distribution::new(Normal::new(5.0, 3.0).unwrap());
+        let x = Distribution::from(Normal::new(5.0, 3.0).unwrap());
         let more_than_mean = x.map(|num| num > 5.0);
 
         assert!(more_than_mean.pr(0.1));
@@ -395,13 +426,13 @@ mod tests {
 
     #[test]
     fn very_certain() {
-        let x = Distribution::new(Bernoulli::new(0.1).unwrap());
+        let x = Distribution::from(Bernoulli::new(0.1).unwrap());
         assert!(x.pr(1e-5))
     }
 
     #[test]
     fn not() {
-        let x = Distribution::new(Bernoulli::new(0.7).unwrap());
+        let x = Distribution::from(Bernoulli::new(0.7).unwrap());
         assert!(x.pr(0.2));
         assert!(x.pr(0.6));
         let not_x = x.not();
