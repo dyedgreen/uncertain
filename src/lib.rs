@@ -78,6 +78,15 @@ pub trait Uncertain {
         }
     }
 
+    /// Equivalent to `self.map(|v| !v.into::<bool>())`.
+    fn not(self) -> Not<Self>
+    where
+        Self: Sized,
+        Self::Value: Into<bool>,
+    {
+        Not { uncertain: self }
+    }
+
     /// Combine two uncertain values by computing their
     /// sum.
     fn add<U>(self, other: U) -> Sum<Self, U>
@@ -208,6 +217,26 @@ where
     }
 }
 
+pub struct Not<U>
+where
+    U: Uncertain,
+    U::Value: Into<bool>,
+{
+    uncertain: U,
+}
+
+impl<U> Uncertain for Not<U>
+where
+    U: Uncertain,
+    U::Value: Into<bool>,
+{
+    type Value = bool;
+
+    fn sample<R: Rng>(&self, rng: &mut R, epoch: usize) -> Self::Value {
+        !self.uncertain.sample(rng, epoch).into()
+    }
+}
+
 pub struct UncertainDistribution<T, D>
 where
     D: Distribution<T>,
@@ -329,5 +358,15 @@ mod tests {
         assert!(!more_than_mean.pr(0.7));
         assert!(!more_than_mean.pr(0.8));
         assert!(!more_than_mean.pr(0.9));
+    }
+
+    #[test]
+    fn not() {
+        let x: UncertainDistribution<bool, _> = Bernoulli::new(0.7).unwrap().into();
+        assert!(x.pr(0.2));
+        assert!(x.pr(0.6));
+        let not_x = x.not();
+        assert!(not_x.pr(0.2));
+        assert!(!not_x.pr(0.6));
     }
 }
