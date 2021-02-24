@@ -3,8 +3,8 @@ use rand::Rng;
 use std::cell::Cell;
 use std::rc::Rc;
 
-/// Boxed uncertain value. This is an uncertain
-/// value which can be cloned. See [`Uncertain::into_boxed`].
+/// Boxed uncertain value. An uncertain value which can
+/// be cloned. See [`Uncertain::into_boxed`].
 pub struct BoxedUncertain<U>
 where
     U: Uncertain,

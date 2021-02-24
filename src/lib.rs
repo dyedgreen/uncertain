@@ -19,8 +19,25 @@ pub use dist::Distribution;
 /// Uncertain value.
 #[must_use = "uncertain values are lazy and do nothing unless queried"]
 pub trait Uncertain {
+    /// The type of the contained value.
     type Value;
 
+    /// Generate a random sample from the distribution underlying this
+    /// uncertain value. This is similar to [`rand::distributions::Distribution::sample`],
+    /// with one important difference:
+    ///
+    /// If the type which implements [`Uncertain`] is either [`Copy`] or [`Clone`],
+    /// then it must guarantee that it will return the same value if queried with
+    /// the same epoch (but different rng state) consecutively for multiple times. This
+    /// is used to ensure that a single uncertain value is only sampled once, for every
+    /// iteration of the statistical test.
+    ///
+    /// This is important, if a value is reused within a computation. E.g.
+    /// `x ~ P; x + x` is different from `x ~ P; x' ~ P; x + x'`.
+    ///
+    /// It is recommended to implement [`rand::distributions::Distribution`] instead
+    /// of this trait since any such type automatically implements `Into<Uncertain>`
+    /// in a correct way.
     fn sample<R: Rng>(&self, rng: &mut R, epoch: usize) -> Self::Value;
 
     /// Determine if the probability of obtaining `true` form this uncertain

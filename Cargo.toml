@@ -1,11 +1,10 @@
 [package]
 name = "uncertain"
 version = "0.1.0"
-authors = ["Tilman Roeder <dyed.green.info@gmail.com>"]
+authors = ["Tilman Roeder"]
 edition = "2018"
 
 [dependencies]
-num-traits = "0.2"
 rand = "0.8.3"
 rand_pcg = "0.3.0"
 
