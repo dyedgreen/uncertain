@@ -1,15 +1,27 @@
-use rand::{distributions::Distribution, Rng};
+use adapters::*;
+use rand::Rng;
 use rand_pcg::Pcg32;
 use std::cell::Cell;
-use std::marker::PhantomData;
 use std::rc::Rc;
 
+mod adapters;
+mod dist;
 mod sprt;
 
+pub use dist::Distribution;
+
+#[must_use = "uncertain values are lazy and do nothing unless queried"]
 pub trait Uncertain {
     type Value;
 
     fn sample<R: Rng>(&self, rng: &mut R, epoch: usize) -> Self::Value;
+
+    fn from_dist<D>(dist: D) -> dist::Distribution<Self::Value, D>
+    where
+        D: rand::distributions::Distribution<Self::Value>,
+    {
+        dist::Distribution::new(dist)
+    }
 
     /// Determine if the probability of obtaining `true` form this uncertain
     /// value is at least `probability`.
@@ -58,33 +70,28 @@ pub trait Uncertain {
         Self: Sized,
         F: Fn(Self::Value) -> O,
     {
-        Map {
-            uncertain: self,
-            func,
-        }
+        Map::new(self, func)
     }
 
-    /// Combine two uncertain values using a closure.
+    /// Combine two uncertain values using a closure. The closure
+    /// `func` receives `self` as the first, and `other` as the
+    /// second argument.
     fn join<O, U, F>(self, other: U, func: F) -> Join<Self, U, F>
     where
         Self: Sized,
         U: Uncertain,
         F: Fn(Self::Value, U::Value) -> O,
     {
-        Join {
-            a: self,
-            b: other,
-            func,
-        }
+        Join::new(self, other, func)
     }
 
-    /// Equivalent to `self.map(|v| !v.into::<bool>())`.
+    /// Negate the boolean contained in self.
     fn not(self) -> Not<Self>
     where
         Self: Sized,
         Self::Value: Into<bool>,
     {
-        Not { uncertain: self }
+        Not::new(self)
     }
 
     /// Combine two uncertain values by computing their
@@ -95,7 +102,7 @@ pub trait Uncertain {
         U: Uncertain,
         Self::Value: std::ops::Add<U::Value>,
     {
-        Sum { a: self, b: other }
+        Sum::new(self, other)
     }
 }
 
@@ -158,116 +165,6 @@ where
     }
 }
 
-pub struct Map<U, F> {
-    uncertain: U,
-    func: F,
-}
-
-impl<T, U, F> Uncertain for Map<U, F>
-where
-    U: Uncertain,
-    F: Fn(U::Value) -> T,
-{
-    type Value = T;
-
-    fn sample<R: Rng>(&self, rng: &mut R, epoch: usize) -> Self::Value {
-        let v = self.uncertain.sample(rng, epoch);
-        (self.func)(v)
-    }
-}
-
-pub struct Join<A, B, F> {
-    a: A,
-    b: B,
-    func: F,
-}
-
-impl<O, A, B, F> Uncertain for Join<A, B, F>
-where
-    A: Uncertain,
-    B: Uncertain,
-    F: Fn(A::Value, B::Value) -> O,
-{
-    type Value = O;
-
-    fn sample<R: Rng>(&self, rng: &mut R, epoch: usize) -> Self::Value {
-        let a = self.a.sample(rng, epoch);
-        let b = self.b.sample(rng, epoch);
-        (self.func)(a, b)
-    }
-}
-
-pub struct Sum<A, B> {
-    a: A,
-    b: B,
-}
-
-impl<A, B> Uncertain for Sum<A, B>
-where
-    A: Uncertain,
-    B: Uncertain,
-    A::Value: std::ops::Add<B::Value>,
-{
-    type Value = <A::Value as std::ops::Add<B::Value>>::Output;
-
-    fn sample<R: Rng>(&self, rng: &mut R, epoch: usize) -> Self::Value {
-        let a = self.a.sample(rng, epoch);
-        let b = self.b.sample(rng, epoch);
-        a + b
-    }
-}
-
-pub struct Not<U>
-where
-    U: Uncertain,
-    U::Value: Into<bool>,
-{
-    uncertain: U,
-}
-
-impl<U> Uncertain for Not<U>
-where
-    U: Uncertain,
-    U::Value: Into<bool>,
-{
-    type Value = bool;
-
-    fn sample<R: Rng>(&self, rng: &mut R, epoch: usize) -> Self::Value {
-        !self.uncertain.sample(rng, epoch).into()
-    }
-}
-
-pub struct UncertainDistribution<T, D>
-where
-    D: Distribution<T>,
-{
-    dist: D,
-    _p: PhantomData<T>,
-}
-
-impl<T, D> Uncertain for UncertainDistribution<T, D>
-where
-    D: Distribution<T>,
-{
-    type Value = T;
-
-    fn sample<R: Rng>(&self, rng: &mut R, _epoch: usize) -> Self::Value {
-        self.dist.sample(rng)
-    }
-}
-
-impl<T, D> From<D> for UncertainDistribution<T, D>
-where
-    D: Distribution<T>,
-{
-    fn from(dist: D) -> Self {
-        Self {
-            dist,
-            _p: PhantomData {},
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -275,7 +172,7 @@ mod tests {
 
     #[test]
     fn clone_shares_values() {
-        let x: UncertainDistribution<f32, _> = Normal::new(10.0, 1.0).unwrap().into();
+        let x = Distribution::new(Normal::new(10.0, 1.0).unwrap());
         let x = x.into_boxed();
         let y = x.clone();
         let mut rng = Pcg32::new(0xcafef00dd15ea5e5, 0xa02bdbf7bb3c0a7);
@@ -289,23 +186,21 @@ mod tests {
         let cases: Vec<f32> = vec![0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.89];
         for p in cases {
             let p_true = p + 0.1;
-            let x: UncertainDistribution<bool, _> = Bernoulli::new(p_true.into()).unwrap().into();
+            let x = Distribution::new(Bernoulli::new(p_true.into()).unwrap());
             assert!(x.pr(p));
         }
 
         let cases: Vec<f32> = vec![0.1, 0.2, 0.3, 0.4, 0.5];
         for p in cases {
             let p_true_much_higher = p + 0.49;
-            let x: UncertainDistribution<bool, _> =
-                Bernoulli::new(p_true_much_higher.into()).unwrap().into();
+            let x = Distribution::new(Bernoulli::new(p_true_much_higher.into()).unwrap());
             assert!(x.pr(p));
         }
 
         let cases: Vec<f32> = vec![0.1, 0.2, 0.3];
         for p in cases {
             let p_tru_way_higher = p + 0.6;
-            let x: UncertainDistribution<bool, _> =
-                Bernoulli::new(p_tru_way_higher.into()).unwrap().into();
+            let x = Distribution::new(Bernoulli::new(p_tru_way_higher.into()).unwrap());
             assert!(x.pr(p));
         }
     }
@@ -315,45 +210,35 @@ mod tests {
         let cases: Vec<f32> = vec![0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7];
         for p in cases {
             let p_too_high = p + 0.1;
-            let x: UncertainDistribution<bool, _> = Bernoulli::new(p.into()).unwrap().into();
+            let x = Distribution::new(Bernoulli::new(p.into()).unwrap());
             assert!(!x.pr(p_too_high));
         }
 
         let cases: Vec<f32> = vec![0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7];
         for p in cases {
             let p_way_too_high = p + 0.2;
-            let x: UncertainDistribution<bool, _> = Bernoulli::new(p.into()).unwrap().into();
+            let x = Distribution::new(Bernoulli::new(p.into()).unwrap());
             assert!(!x.pr(p_way_too_high));
         }
 
         let cases: Vec<f32> = vec![0.1, 0.2, 0.3, 0.4, 0.5];
         for p in cases {
             let p_very_way_too_high = p + 0.49;
-            let x: UncertainDistribution<bool, _> = Bernoulli::new(p.into()).unwrap().into();
+            let x = Distribution::new(Bernoulli::new(p.into()).unwrap());
             assert!(!x.pr(p_very_way_too_high));
         }
     }
 
     #[test]
     fn basic_gaussian_pr() {
-        let x: UncertainDistribution<f64, _> = Normal::new(5.0, 3.0).unwrap().into();
+        let x = Distribution::new(Normal::new(5.0, 3.0).unwrap());
         let more_than_mean = x.map(|num| num > 5.0);
 
+        assert!(more_than_mean.pr(0.1));
         assert!(more_than_mean.pr(0.2));
         assert!(more_than_mean.pr(0.3));
         assert!(more_than_mean.pr(0.4));
-        // assert!(more_than_mean.pr(0.5));
 
-        let mut rng = Pcg32::new(0xcafef00dd15ea5e5, 0xa02bdbf7bb3c0a7);
-        let mut positive = 0;
-        for epoch in 0..20 {
-            if more_than_mean.sample(&mut rng, epoch) {
-                positive += 1;
-            }
-        }
-        print!("{:?}/20", positive);
-
-        // assert!(!more_than_mean.pr(0.5001));
         assert!(!more_than_mean.pr(0.6));
         assert!(!more_than_mean.pr(0.7));
         assert!(!more_than_mean.pr(0.8));
@@ -361,8 +246,14 @@ mod tests {
     }
 
     #[test]
+    fn very_certain() {
+        let x = Distribution::new(Bernoulli::new(0.1).unwrap());
+        assert!(x.pr(1e-5))
+    }
+
+    #[test]
     fn not() {
-        let x: UncertainDistribution<bool, _> = Bernoulli::new(0.7).unwrap().into();
+        let x = Distribution::new(Bernoulli::new(0.7).unwrap());
         assert!(x.pr(0.2));
         assert!(x.pr(0.6));
         let not_x = x.not();

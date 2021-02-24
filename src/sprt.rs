@@ -38,13 +38,12 @@ where
     let upper_ln = (D1 / (1.0 - D1)).ln();
     let lower_ln = ((1.0 - D0) / D0).ln();
 
-    let mut epoch = 0;
-    let val = src.sample(rng, epoch).into();
+    let val = src.sample(rng, 0).into();
     let mut ratio_ln = log_likelyhood_ratio(prob, val);
 
     for step in 0..MAXS {
         for s in 0..STEP {
-            epoch += 1;
+            let epoch = STEP * step + s;
             let val = src.sample(rng, epoch).into();
             ratio_ln += log_likelyhood_ratio(prob, val);
         }
