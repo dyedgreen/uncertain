@@ -46,7 +46,7 @@ pub trait Uncertain {
     ///
     /// # Examples
     ///
-    /// Basic usage: test if some event is more likely than not
+    /// Basic usage: test if some event is more likely than not.
     ///
     /// ```
     /// use uncertain::{Uncertain, Distribution};
@@ -88,7 +88,7 @@ pub trait Uncertain {
     ///
     /// # Examples
     ///
-    /// Basic usage
+    /// Basic usage:
     ///
     /// ```
     /// use uncertain::{Uncertain, Distribution};
@@ -137,7 +137,7 @@ pub trait Uncertain {
     ///
     /// # Examples
     ///
-    /// Inverting a Bernoulli distribution
+    /// Inverting a Bernoulli distribution:
     ///
     /// ```
     /// use uncertain::{Uncertain, Distribution};
@@ -159,6 +159,8 @@ pub trait Uncertain {
     /// to avoid sampling `y` if `x` is already false.
     ///
     /// # Examples
+    ///
+    /// Basic usage:
     ///
     /// ```
     /// use uncertain::{Uncertain, Distribution};
@@ -186,6 +188,8 @@ pub trait Uncertain {
     ///
     /// # Examples
     ///
+    /// Basic usage:
+    ///
     /// ```
     /// use uncertain::{Uncertain, Distribution};
     /// use rand_distr::Bernoulli;
@@ -206,8 +210,21 @@ pub trait Uncertain {
         Or::new(self, other)
     }
 
-    /// Combine two uncertain values by computing their
-    /// sum.
+    /// Add two uncertain values. This is a shorthand
+    /// for `x.join(y, |x, y| x + y)`.
+    ///
+    /// # Examples
+    ///
+    /// Basic usage:
+    ///
+    /// ```
+    /// use uncertain::{Uncertain, Distribution};
+    /// use rand_distr::Normal;
+    ///
+    /// let x = Distribution::new(Normal::new(1.0, 1.0).unwrap());
+    /// let y = Distribution::new(Normal::new(4.0, 1.0).unwrap());
+    /// assert!(x.add(y).map(|sum| sum >= 5.0).pr(0.5));
+    /// ```
     fn add<U>(self, other: U) -> Sum<Self, U>
     where
         Self: Sized,
@@ -217,6 +234,21 @@ pub trait Uncertain {
         Sum::new(self, other)
     }
 
+    /// Subtract two uncertain values. This is a shorthand
+    /// for `x.join(y, |x, y| x - y)`.
+    ///
+    /// # Examples
+    ///
+    /// Basic usage:
+    ///
+    /// ```
+    /// use uncertain::{Uncertain, Distribution};
+    /// use rand_distr::Normal;
+    ///
+    /// let x = Distribution::new(Normal::new(7.0, 1.0).unwrap());
+    /// let y = Distribution::new(Normal::new(2.0, 1.0).unwrap());
+    /// assert!(x.sub(y).map(|diff| diff >= 5.0).pr(0.5));
+    /// ```
     fn sub<U>(self, other: U) -> Difference<Self, U>
     where
         Self: Sized,
@@ -226,6 +258,21 @@ pub trait Uncertain {
         Difference::new(self, other)
     }
 
+    /// Multiply two uncertain values. This is a shorthand
+    /// for `x.join(y, |x, y| x * y)`.
+    ///
+    /// # Examples
+    ///
+    /// Basic usage:
+    ///
+    /// ```
+    /// use uncertain::{Uncertain, Distribution};
+    /// use rand_distr::Normal;
+    ///
+    /// let x = Distribution::new(Normal::new(4.0, 1.0).unwrap());
+    /// let y = Distribution::new(Normal::new(2.0, 1.0).unwrap());
+    /// assert!(x.mul(y).map(|prod| prod >= 4.0).pr(0.5));
+    /// ```
     fn mul<U>(self, other: U) -> Product<Self, U>
     where
         Self: Sized,
@@ -235,6 +282,21 @@ pub trait Uncertain {
         Product::new(self, other)
     }
 
+    /// Divide two uncertain values. This is a shorthand
+    /// for `x.join(y, |x, y| x / y)`.
+    ///
+    /// # Examples
+    ///
+    /// Basic usage:
+    ///
+    /// ```
+    /// use uncertain::{Uncertain, Distribution};
+    /// use rand_distr::Normal;
+    ///
+    /// let x = Distribution::new(Normal::new(100.0, 1.0).unwrap());
+    /// let y = Distribution::new(Normal::new(2.0, 1.0).unwrap());
+    /// assert!(x.div(y).map(|prod| prod <= 50.0).pr(0.5));
+    /// ```
     fn div<U>(self, other: U) -> Ratio<Self, U>
     where
         Self: Sized,
@@ -249,17 +311,6 @@ pub trait Uncertain {
 mod tests {
     use super::*;
     use rand_distr::{Bernoulli, Normal};
-
-    #[test]
-    fn clone_shares_values() {
-        let x = Distribution::new(Normal::new(10.0, 1.0).unwrap());
-        let x = x.into_boxed();
-        let y = x.clone();
-        let mut rng = Pcg32::new(0xcafef00dd15ea5e5, 0xa02bdbf7bb3c0a7);
-        for epoch in 0..1000 {
-            assert_eq!(x.sample(&mut rng, epoch), y.sample(&mut rng, epoch));
-        }
-    }
 
     #[test]
     fn basic_positive_pr() {

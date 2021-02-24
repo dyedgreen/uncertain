@@ -3,6 +3,8 @@ use rand::Rng;
 use std::cell::Cell;
 use std::rc::Rc;
 
+/// Boxed uncertain value. This is an uncertain
+/// value which can be cloned. See [`Uncertain::into_boxed`].
 pub struct BoxedUncertain<U>
 where
     U: Uncertain,
@@ -59,5 +61,23 @@ where
         };
         self.cache.set(Some((epoch, value.clone())));
         value
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{Distribution, Uncertain};
+    use rand_distr::Normal;
+    use rand_pcg::Pcg32;
+
+    #[test]
+    fn cloned_boxed_shares_values() {
+        let x = Distribution::new(Normal::new(10.0, 1.0).unwrap());
+        let x = x.into_boxed();
+        let y = x.clone();
+        let mut rng = Pcg32::new(0xcafef00dd15ea5e5, 0xa02bdbf7bb3c0a7);
+        for epoch in 0..1000 {
+            assert_eq!(x.sample(&mut rng, epoch), y.sample(&mut rng, epoch));
+        }
     }
 }

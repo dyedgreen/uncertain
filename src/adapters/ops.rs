@@ -117,3 +117,75 @@ binary_op!(Sum, +, Add);
 binary_op!(Difference, -, Sub);
 binary_op!(Product, *, Mul);
 binary_op!(Ratio, /, Div);
+
+#[cfg(test)]
+mod tests {
+    use crate::Uncertain;
+    use rand::Rng;
+
+    struct FixedValue<T>(T);
+
+    impl<T: Clone> Uncertain for FixedValue<T> {
+        type Value = T;
+
+        fn sample<R: Rng>(&self, _rng: &mut R, _epoch: usize) -> T {
+            self.0.clone()
+        }
+    }
+
+    #[test]
+    fn op_not() {
+        let a = FixedValue(false);
+        assert!(a.not().pr(0.99999));
+    }
+
+    #[test]
+    fn op_and() {
+        let a = FixedValue(true);
+        let b = FixedValue(true);
+        assert!(a.and(b).pr(0.99999));
+
+        let a = FixedValue(true);
+        let b = FixedValue(false);
+        assert_eq!(a.and(b).pr(0.00001), false);
+    }
+
+    #[test]
+    fn op_or() {
+        let a = FixedValue(false);
+        let b = FixedValue(true);
+        assert!(a.or(b).pr(0.99999));
+
+        let a = FixedValue(false);
+        let b = FixedValue(false);
+        assert_eq!(a.or(b).pr(0.00001), false);
+    }
+
+    #[test]
+    fn op_add() {
+        let a = FixedValue(5);
+        let b = FixedValue(9);
+        assert!(a.add(b).map(|sum| sum == 5 + 9).pr(0.99999));
+    }
+
+    #[test]
+    fn op_sub() {
+        let a = FixedValue(5);
+        let b = FixedValue(9);
+        assert!(a.sub(b).map(|sum| sum == 5 - 9).pr(0.99999));
+    }
+
+    #[test]
+    fn op_mul() {
+        let a = FixedValue(5);
+        let b = FixedValue(9);
+        assert!(a.mul(b).map(|sum| sum == 5 * 9).pr(0.99999));
+    }
+
+    #[test]
+    fn op_div() {
+        let a = FixedValue(5.0);
+        let b = FixedValue(9.0);
+        assert!(a.div(b).map(|sum| sum == 5.0 / 9.0).pr(0.99999));
+    }
+}
