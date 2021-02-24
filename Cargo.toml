@@ -3,6 +3,11 @@ name = "uncertain"
 version = "0.1.0"
 authors = ["Tilman Roeder"]
 edition = "2018"
+repository = "https://github.com/dyedgreen/uncertain"
+license = "MIT OR Apache-2.0"
+description = "Fast and correct computations with uncertain values."
+keywords = ["random", "statistics", "probability"]
+categories = ["algorithms", "mathematics", "science", "simulation"]
 
 [dependencies]
 rand = "0.8.3"
