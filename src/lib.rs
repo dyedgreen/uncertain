@@ -10,18 +10,12 @@ mod sprt;
 
 pub use dist::Distribution;
 
+/// Uncertain value.
 #[must_use = "uncertain values are lazy and do nothing unless queried"]
 pub trait Uncertain {
     type Value;
 
     fn sample<R: Rng>(&self, rng: &mut R, epoch: usize) -> Self::Value;
-
-    fn from_dist<D>(dist: D) -> dist::Distribution<Self::Value, D>
-    where
-        D: rand::distributions::Distribution<Self::Value>,
-    {
-        dist::Distribution::new(dist)
-    }
 
     /// Determine if the probability of obtaining `true` form this uncertain
     /// value is at least `probability`.
