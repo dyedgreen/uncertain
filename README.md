@@ -37,7 +37,7 @@ While this crate is released as version `0.x`, breaking API changes should be ex
 
 ## References
 
-The [`Uncertain`] trait exported from the library is an implementation of
+The `Uncertain` trait exported from the library is an implementation of
 the paper [`Uncertain<T>`][paper].
 
 [paper]: https://www.cs.utexas.edu/users/mckinley/papers/uncertainty-asplos-2014.pdf
