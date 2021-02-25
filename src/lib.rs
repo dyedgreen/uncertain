@@ -192,7 +192,9 @@ pub trait Uncertain {
     ///
     /// # Example
     ///
-    /// Basic example: model two poker chip factories.
+    /// Basic example: model two poker chip factories. The first of
+    /// which produces chips with `N ~ Binomial(20, 0.3)` and
+    /// the second of which produces chips with `M ~ Binomial(50, 0.5)`.
     ///
     /// ```
     /// use uncertain::{Uncertain, Distribution};
@@ -205,7 +207,7 @@ pub trait Uncertain {
     ///     } else {
     ///         Distribution::from(Binomial::new(50, 0.5).unwrap())
     ///     });
-    /// assert!(number_of_chips.map(|n| n > 20).pr(0.25));
+    /// assert!(number_of_chips.map(|n| n < 25).pr(0.5));
     /// ```
     fn flat_map<O, F>(self, func: F) -> FlatMap<Self, F>
     where
