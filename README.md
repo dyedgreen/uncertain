@@ -1,5 +1,9 @@
 # `Uncertain<T>`
 
+[![crates.io](https://img.shields.io/crates/v/uncertain.svg)](https://crates.io/crates/uncertain)
+[![Released API docs](https://docs.rs/uncertain/badge.svg)](https://docs.rs/uncertain)
+[![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+
 Computation with uncertain values.
 
 When working with values which are not exactly determined, such as sensor data, it
