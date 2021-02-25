@@ -26,7 +26,7 @@ where
 {
     type Value = bool;
 
-    fn sample<R: Rng>(&self, rng: &mut R, epoch: usize) -> Self::Value {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R, epoch: usize) -> Self::Value {
         !self.uncertain.sample(rng, epoch).into()
     }
 }
@@ -65,7 +65,7 @@ macro_rules! logic_op {
         {
             type Value = bool;
 
-            fn sample<R: Rng>(&self, rng: &mut R, epoch: usize) -> Self::Value {
+            fn sample<R: Rng + ?Sized>(&self, rng: &mut R, epoch: usize) -> Self::Value {
                 self.a.sample(rng, epoch).into() $op self.b.sample(rng, epoch).into()
             }
         }
@@ -103,7 +103,7 @@ macro_rules! binary_op {
         {
             type Value = <A::Value as std::ops::$trait<B::Value>>::Output;
 
-            fn sample<R: Rng>(&self, rng: &mut R, epoch: usize) -> Self::Value {
+            fn sample<R: Rng + ?Sized>(&self, rng: &mut R, epoch: usize) -> Self::Value {
                 self.a.sample(rng, epoch) $op self.b.sample(rng, epoch)
             }
         }
@@ -128,7 +128,7 @@ mod tests {
     impl<T: Clone> Uncertain for FixedValue<T> {
         type Value = T;
 
-        fn sample<R: Rng>(&self, _rng: &mut R, _epoch: usize) -> T {
+        fn sample<R: Rng + ?Sized>(&self, _rng: &mut R, _epoch: usize) -> T {
             self.0.clone()
         }
     }

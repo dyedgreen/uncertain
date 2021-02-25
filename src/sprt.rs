@@ -33,7 +33,7 @@ pub fn sequential_probability_ratio_test<U, R>(prob: f32, src: &U, rng: &mut R) 
 where
     U: Uncertain + ?Sized,
     U::Value: Into<bool>,
-    R: Rng,
+    R: Rng + ?Sized,
 {
     let upper_ln = (D1 / (1.0 - D1)).ln();
     let lower_ln = ((1.0 - D0) / D0).ln();
@@ -53,4 +53,29 @@ where
     }
 
     ratio_ln < lower_ln
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::*;
+    use rand_distr::Bernoulli;
+    use rand_pcg::Pcg32;
+
+    #[test]
+    fn basic_sprt_works() {
+        let src = Distribution::from(Bernoulli::new(0.5).unwrap());
+        let mut rng = Pcg32::new(0xcafef00dd15ea5e5, 0xa02bdbf7bb3c0a7);
+
+        assert!(sequential_probability_ratio_test(0.4, &src, &mut rng));
+        assert!(!sequential_probability_ratio_test(0.6, &src, &mut rng));
+    }
+
+    #[test]
+    fn likelyhood_sanity_check() {
+        assert_eq!(accept_likelyhood(0.0, true), 0.5);
+        assert_eq!(accept_likelyhood(1.0, true), 1.0);
+        assert_eq!(reject_likelyhood(0.0, false), 1.0);
+        assert_eq!(reject_likelyhood(1.0, false), 0.5);
+    }
 }

@@ -47,7 +47,7 @@ where
 {
     type Value = U::Value;
 
-    fn sample<R: Rng>(&self, rng: &mut R, epoch: usize) -> Self::Value {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R, epoch: usize) -> Self::Value {
         let cache = self.cache.take();
         let value = match cache {
             Some((cache_epoch, cache_value)) => {

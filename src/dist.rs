@@ -35,7 +35,7 @@ where
 {
     type Value = T;
 
-    fn sample<R: Rng>(&self, rng: &mut R, _epoch: usize) -> Self::Value {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R, _epoch: usize) -> Self::Value {
         self.dist.sample(rng)
     }
 }

@@ -4,7 +4,7 @@
 [![Released API docs](https://docs.rs/uncertain/badge.svg)](https://docs.rs/uncertain)
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
-Computation with uncertain values.
+Fast and correct computations with uncertain values.
 
 When working with values which are not exactly determined, such as sensor data, it
 can be difficult to handle uncertainties correctly.

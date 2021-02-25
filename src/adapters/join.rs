@@ -26,7 +26,7 @@ where
 {
     type Value = O;
 
-    fn sample<R: Rng>(&self, rng: &mut R, epoch: usize) -> Self::Value {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R, epoch: usize) -> Self::Value {
         let a = self.a.sample(rng, epoch);
         let b = self.b.sample(rng, epoch);
         (self.func)(a, b)

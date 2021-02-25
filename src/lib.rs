@@ -69,7 +69,7 @@ pub trait Uncertain {
     /// automatically implements [`Into<Distribution>`] in a correct way.
     ///
     /// [`Into<Distribution>`]: Distribution
-    fn sample<R: Rng>(&self, rng: &mut R, epoch: usize) -> Self::Value;
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R, epoch: usize) -> Self::Value;
 
     /// Determine if the probability of obtaining `true` form this uncertain
     /// value is at least `probability`.
@@ -116,7 +116,7 @@ pub trait Uncertain {
 
     /// Same as [pr](Uncertain::pr), but generic over the random number
     /// generator used to produce samples.
-    fn pr_with<R: Rng>(&self, rng: &mut R, probability: f32) -> bool
+    fn pr_with<R: Rng + ?Sized>(&self, rng: &mut R, probability: f32) -> bool
     where
         Self::Value: Into<bool>,
     {
@@ -160,6 +160,20 @@ pub trait Uncertain {
 
     /// Takes an uncertain value and produces another which
     /// generates values by calling a closure when sampling.
+    ///
+    /// # Examples
+    ///
+    /// Basic usage:
+    ///
+    /// ```
+    /// use uncertain::{Uncertain, Distribution};
+    /// use rand_distr::Normal;
+    ///
+    /// let x = Distribution::from(Normal::new(0.0, 1.0).unwrap());
+    /// let y = x.map(|x| 5.0 + x);
+    /// let bigger_eq_four = y.map(|v| v >= 4.0);
+    /// assert!(bigger_eq_four.pr(0.5));
+    /// ```
     fn map<O, F>(self, func: F) -> Map<Self, F>
     where
         Self: Sized,
@@ -168,9 +182,57 @@ pub trait Uncertain {
         Map::new(self, func)
     }
 
+    /// Takes an uncertain value and produces another which
+    /// generates values by calling a closure to generate
+    /// fresh uncertain types that can depend on the value
+    /// contained in self.
+    ///
+    /// This is useful for cases where the distribution of
+    /// an uncertain value depends on another.
+    ///
+    /// # Example
+    ///
+    /// Basic example: model two poker chip factories.
+    ///
+    /// ```
+    /// use uncertain::{Uncertain, Distribution};
+    /// use rand_distr::{Binomial, Bernoulli};
+    ///
+    /// let is_first_factory = Distribution::from(Bernoulli::new(0.5).unwrap());
+    /// let number_of_chips = is_first_factory
+    ///     .flat_map(|is_first| if is_first {
+    ///         Distribution::from(Binomial::new(20, 0.3).unwrap())
+    ///     } else {
+    ///         Distribution::from(Binomial::new(50, 0.5).unwrap())
+    ///     });
+    /// assert!(number_of_chips.map(|n| n > 20).pr(0.25));
+    /// ```
+    fn flat_map<O, F>(self, func: F) -> FlatMap<Self, F>
+    where
+        Self: Sized,
+        O: Uncertain,
+        F: Fn(Self::Value) -> O,
+    {
+        FlatMap::new(self, func)
+    }
+
     /// Combine two uncertain values using a closure. The closure
     /// `func` receives `self` as the first, and `other` as the
     /// second argument.
+    ///
+    /// # Examples
+    ///
+    /// Basic usage:
+    ///
+    /// ```
+    /// use uncertain::{Uncertain, Distribution};
+    /// use rand_distr::Bernoulli;
+    ///
+    /// let x = Distribution::from(Bernoulli::new(0.5).unwrap());
+    /// let y = Distribution::from(Bernoulli::new(0.5).unwrap());
+    /// let are_equal = x.join(y, |x, y| x == y);
+    /// assert!(are_equal.pr(0.5));
+    /// ```
     fn join<O, U, F>(self, other: U, func: F) -> Join<Self, U, F>
     where
         Self: Sized,
@@ -352,91 +414,5 @@ pub trait Uncertain {
         Self::Value: std::ops::Div<U::Value>,
     {
         Ratio::new(self, other)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use rand_distr::{Bernoulli, Normal};
-
-    #[test]
-    fn basic_positive_pr() {
-        let cases: Vec<f32> = vec![0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.89];
-        for p in cases {
-            let p_true = p + 0.1;
-            let x = Distribution::from(Bernoulli::new(p_true.into()).unwrap());
-            assert!(x.pr(p));
-        }
-
-        let cases: Vec<f32> = vec![0.1, 0.2, 0.3, 0.4, 0.5];
-        for p in cases {
-            let p_true_much_higher = p + 0.49;
-            let x = Distribution::from(Bernoulli::new(p_true_much_higher.into()).unwrap());
-            assert!(x.pr(p));
-        }
-
-        let cases: Vec<f32> = vec![0.1, 0.2, 0.3];
-        for p in cases {
-            let p_tru_way_higher = p + 0.6;
-            let x = Distribution::from(Bernoulli::new(p_tru_way_higher.into()).unwrap());
-            assert!(x.pr(p));
-        }
-    }
-
-    #[test]
-    fn basic_negative_pr() {
-        let cases: Vec<f32> = vec![0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7];
-        for p in cases {
-            let p_too_high = p + 0.1;
-            let x = Distribution::from(Bernoulli::new(p.into()).unwrap());
-            assert!(!x.pr(p_too_high));
-        }
-
-        let cases: Vec<f32> = vec![0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7];
-        for p in cases {
-            let p_way_too_high = p + 0.2;
-            let x = Distribution::from(Bernoulli::new(p.into()).unwrap());
-            assert!(!x.pr(p_way_too_high));
-        }
-
-        let cases: Vec<f32> = vec![0.1, 0.2, 0.3, 0.4, 0.5];
-        for p in cases {
-            let p_very_way_too_high = p + 0.49;
-            let x = Distribution::from(Bernoulli::new(p.into()).unwrap());
-            assert!(!x.pr(p_very_way_too_high));
-        }
-    }
-
-    #[test]
-    fn basic_gaussian_pr() {
-        let x = Distribution::from(Normal::new(5.0, 3.0).unwrap());
-        let more_than_mean = x.map(|num| num > 5.0);
-
-        assert!(more_than_mean.pr(0.1));
-        assert!(more_than_mean.pr(0.2));
-        assert!(more_than_mean.pr(0.3));
-        assert!(more_than_mean.pr(0.4));
-
-        assert!(!more_than_mean.pr(0.6));
-        assert!(!more_than_mean.pr(0.7));
-        assert!(!more_than_mean.pr(0.8));
-        assert!(!more_than_mean.pr(0.9));
-    }
-
-    #[test]
-    fn very_certain() {
-        let x = Distribution::from(Bernoulli::new(0.1).unwrap());
-        assert!(x.pr(1e-5))
-    }
-
-    #[test]
-    fn not() {
-        let x = Distribution::from(Bernoulli::new(0.7).unwrap());
-        assert!(x.pr(0.2));
-        assert!(x.pr(0.6));
-        let not_x = x.not();
-        assert!(not_x.pr(0.2));
-        assert!(!not_x.pr(0.6));
     }
 }

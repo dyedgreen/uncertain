@@ -1,30 +1,32 @@
 use crate::Uncertain;
 use rand::Rng;
 
-pub struct Map<U, F> {
+pub struct FlatMap<U, F> {
     uncertain: U,
     func: F,
 }
 
-impl<T, U, F> Map<U, F>
+impl<O, U, F> FlatMap<U, F>
 where
     U: Uncertain,
-    F: Fn(U::Value) -> T,
+    O: Uncertain,
+    F: Fn(U::Value) -> O,
 {
     pub fn new(uncertain: U, func: F) -> Self {
         Self { uncertain, func }
     }
 }
 
-impl<T, U, F> Uncertain for Map<U, F>
+impl<O, U, F> Uncertain for FlatMap<U, F>
 where
     U: Uncertain,
-    F: Fn(U::Value) -> T,
+    O: Uncertain,
+    F: Fn(U::Value) -> O,
 {
-    type Value = T;
+    type Value = O::Value;
 
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R, epoch: usize) -> Self::Value {
         let v = self.uncertain.sample(rng, epoch);
-        (self.func)(v)
+        (self.func)(v).sample(rng, epoch)
     }
 }
