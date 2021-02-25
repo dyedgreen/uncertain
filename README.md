@@ -31,7 +31,11 @@ on the uncertain type. The `Uncertain` trait only permits tests for simple boole
 is by design: using Wald's [sequential probability ratio test](sprt), evaluation typically
 takes less than `100` samples.
 
-# References
+## Stability
+
+While this crate is released as version `0.x`, breaking API changes should be expected.
+
+## References
 
 The [`Uncertain`] trait exported from the library is an implementation of
 the paper [`Uncertain<T>`][paper].
