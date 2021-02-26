@@ -2,6 +2,7 @@
 
 [![crates.io](https://img.shields.io/crates/v/uncertain.svg)](https://crates.io/crates/uncertain)
 [![Released API docs](https://docs.rs/uncertain/badge.svg)](https://docs.rs/uncertain)
+[![CI](https://github.com/dyedgreen/uncertain/actions/workflows/ci.yml/badge.svg)](https://github.com/dyedgreen/uncertain/actions/workflows/ci.yml)
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
 Fast and correct computations with uncertain values.
