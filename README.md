@@ -33,7 +33,7 @@ assert_eq!(is_it_far.pr(0.5), true);
 
 This works by sampling a Bayesian network which is implicitly created by describing the computation
 on the uncertain type. The `Uncertain` trait only permits tests for simple boolean hypotheses. This
-is by design: using Wald's [sequential probability ratio test](sprt), evaluation typically
+is by design: using Wald's [sequential probability ratio test][sprt], evaluation typically
 takes less than `100` samples.
 
 ## Stability
