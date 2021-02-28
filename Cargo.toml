@@ -8,6 +8,7 @@ license = "MIT"
 description = "Fast and correct computations with uncertain values."
 keywords = ["random", "statistics", "probability"]
 categories = ["algorithms", "mathematics", "science", "simulation"]
+exclude = [".github"]
 
 [dependencies]
 rand = "0.8.3"
