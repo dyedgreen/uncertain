@@ -168,15 +168,10 @@ pub trait Uncertain {
     }
 
     /// Bundle this uncertain value with a cache, so it can be reused in a calculation.
-    /// Usually, an uncertain value can not be reused in a network as the [`Distribution`]
-    /// type does not implement Clone, while the reference of CachedUncertain implements
-    /// Uncertain and can be used multiple times in a calculation.
-    ///
-    /// it has to cache it's sampled value by means of interior mutability such that if it is
-    /// queried for the same `epoch` twice, it returns the same value.
-    ///
-    /// [`CachedUncertain`] wraps the uncertain value contained in  `self`, and
-    /// ensures it behaves correctly if sampled repeatedly.
+    /// Normally, uncertain values do not implement `Copy` or `Clone`, since the same value
+    /// is only allowed to be sampled once for every epoch. The cache added by this wrapper
+    /// allows a value to be reused, by caching the sample result for every epoch and implementing
+    /// [`Uncertain`] for references as well.
     ///
     /// # Examples
     ///

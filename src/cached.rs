@@ -20,7 +20,7 @@ where
 {
     pub(crate) fn new(contained: U) -> Self {
         CachedUncertain {
-            ptr: contained,
+            uncertain: contained,
             cache: Cell::new(None),
         }
     }
@@ -36,7 +36,7 @@ where
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R, epoch: usize) -> Self::Value {
         let value = match self.cache.take() {
             Some((cache_epoch, cache_value)) if cache_epoch == epoch => cache_value,
-            _ => self.ptr.sample(rng, epoch),
+            _ => self.uncertain.sample(rng, epoch),
         };
         self.cache.set(Some((epoch, value.clone())));
         value
