@@ -2,7 +2,7 @@ use crate::Uncertain;
 use rand::Rng;
 use std::cell::Cell;
 
-/// Cached uncertainty. Its reference also implements Uncertain.
+/// Cached uncertain value. Allows its reference to also implements [`Uncertain`].
 /// See [`Uncertain::into_cached`].
 pub struct CachedUncertain<U>
 where
