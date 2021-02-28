@@ -9,7 +9,7 @@ where
     U: Uncertain,
     U::Value: Clone,
 {
-    ptr: U,
+    uncertain: U,
     cache: Cell<Option<(usize, U::Value)>>,
 }
 
