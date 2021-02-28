@@ -40,14 +40,14 @@
 //! [sprt]: https://en.wikipedia.org/wiki/Sequential_probability_ratio_test
 
 use adapters::*;
-use cached::CachedUncertain;
 use rand::Rng;
 use rand_pcg::Pcg32;
+use reference::RefUncertain;
 
 mod adapters;
 mod boxed;
-mod cached;
 mod dist;
+mod reference;
 mod sprt;
 
 #[allow(deprecated)]
@@ -159,7 +159,7 @@ pub trait Uncertain {
     /// let bigger_than_twelve = b.map(|v| v > 12.0);
     /// assert!(bigger_than_twelve.pr(0.5));
     /// ```
-    #[deprecated(since = "0.2.1", note = "Please use `into_cached` instead")]
+    #[deprecated(since = "0.2.1", note = "Please use `into_ref` instead")]
     #[allow(deprecated)]
     fn into_boxed(self) -> BoxedUncertain<Self>
     where
@@ -170,7 +170,8 @@ pub trait Uncertain {
     }
 
     /// Bundle this uncertain value with a cache, so it can be reused in a calculation.
-    /// Normally, uncertain values do not implement `Copy` or `Clone`, since the same value
+    ///
+    /// Uncertain values should normally not implement `Copy` or `Clone`, since the same value
     /// is only allowed to be sampled once for every epoch. The cache added by this wrapper
     /// allows a value to be reused, by caching the sample result for every epoch and implementing
     /// [`Uncertain`] for references as well.
@@ -183,24 +184,24 @@ pub trait Uncertain {
     /// use uncertain::{Uncertain, Distribution};
     /// use rand_distr::Normal;
     ///
-    /// let x = Distribution::from(Normal::new(5.0, 2.0).unwrap()).into_cached();
+    /// let x = Distribution::from(Normal::new(5.0, 2.0).unwrap()).into_ref();
     /// let y = Distribution::from(Normal::new(10.0, 5.0).unwrap());
-    /// let a = (&x).add(y);
+    /// let a = y.add(&x);
     /// let b = a.add(&x);
     ///
     /// let bigger_than_twelve = b.map(|v| v > 12.0);
     /// assert!(bigger_than_twelve.pr(0.5));
     /// ```
-    fn into_cached(self) -> CachedUncertain<Self>
+    fn into_ref(self) -> RefUncertain<Self>
     where
         Self: Sized,
         Self::Value: Clone,
     {
-        CachedUncertain::new(self)
+        RefUncertain::new(self)
     }
 
     /// Takes an uncertain value and produces another which
-    /// generates values by calling a closure when sampling.
+    /// generates values by calling a closure.
     ///
     /// # Examples
     ///

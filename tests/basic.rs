@@ -83,7 +83,7 @@ fn not() {
 
 #[test]
 fn sampling_sanity_check() {
-    let x = Distribution::from(Binomial::new(100, 0.5).unwrap()).into_cached();
+    let x = Distribution::from(Binomial::new(100, 0.5).unwrap()).into_ref();
     let diff = (&x).sub(&x);
     assert!(diff.map(|d| d == 0).pr(0.9999));
 }

@@ -2,9 +2,7 @@ use crate::Uncertain;
 use rand::Rng;
 use std::cell::Cell;
 
-/// Cached uncertain value. Allows its reference to also implements [`Uncertain`].
-/// See [`Uncertain::into_cached`].
-pub struct CachedUncertain<U>
+pub struct RefUncertain<U>
 where
     U: Uncertain,
     U::Value: Clone,
@@ -13,20 +11,20 @@ where
     cache: Cell<Option<(usize, U::Value)>>,
 }
 
-impl<U> CachedUncertain<U>
+impl<U> RefUncertain<U>
 where
     U: Uncertain,
     U::Value: Clone,
 {
     pub(crate) fn new(contained: U) -> Self {
-        CachedUncertain {
+        RefUncertain {
             uncertain: contained,
             cache: Cell::new(None),
         }
     }
 }
 
-impl<U> Uncertain for &CachedUncertain<U>
+impl<U> Uncertain for &RefUncertain<U>
 where
     U: Uncertain,
     U::Value: Clone,
@@ -43,7 +41,7 @@ where
     }
 }
 
-impl<U> Uncertain for CachedUncertain<U>
+impl<U> Uncertain for RefUncertain<U>
 where
     U: Uncertain,
     U::Value: Clone,
@@ -62,12 +60,12 @@ mod tests {
     use rand_pcg::Pcg32;
 
     #[test]
-    fn cached_uncertain_shares_values() {
+    fn ref_uncertain_shares_values() {
         let x = Distribution::from(Normal::new(10.0, 1.0).unwrap());
-        let x = x.into_cached();
+        let x = x.into_ref();
         let mut rng = Pcg32::new(0xcafef00dd15ea5e5, 0xa02bdbf7bb3c0a7);
         for epoch in 0..1000 {
-            assert_eq!((&x).sample(&mut rng, epoch), (&x).sample(&mut rng, epoch));
+            assert_eq!(x.sample(&mut rng, epoch), x.sample(&mut rng, epoch));
         }
     }
 }
