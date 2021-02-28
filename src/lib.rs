@@ -1,5 +1,4 @@
 #![warn(missing_docs)]
-#![allow(clippy::float_cmp)]
 
 //! Computation with uncertain values.
 //!
@@ -51,6 +50,7 @@ mod cached;
 mod dist;
 mod sprt;
 
+#[allow(deprecated)]
 pub use boxed::BoxedUncertain;
 pub use dist::Distribution;
 
@@ -123,7 +123,7 @@ pub trait Uncertain {
         self.pr_with(&mut rng, probability)
     }
 
-    /// Same as [pr](Uncertain::pr), but generic over the random number
+    /// Same as [`Uncertain::pr`], but generic over the random number
     /// generator used to produce samples.
     fn pr_with<R: Rng + ?Sized>(&self, rng: &mut R, probability: f32) -> bool
     where
@@ -160,6 +160,7 @@ pub trait Uncertain {
     /// assert!(bigger_than_twelve.pr(0.5));
     /// ```
     #[deprecated(since = "0.2.1", note = "Please use `into_cached` instead")]
+    #[allow(deprecated)]
     fn into_boxed(self) -> BoxedUncertain<Self>
     where
         Self: 'static + Sized,

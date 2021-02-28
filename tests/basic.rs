@@ -1,4 +1,4 @@
-use rand_distr::{Bernoulli, Normal};
+use rand_distr::{Bernoulli, Binomial, Normal};
 use uncertain::*;
 
 #[test]
@@ -79,4 +79,11 @@ fn not() {
     let not_x = x.not();
     assert!(not_x.pr(0.2));
     assert!(!not_x.pr(0.6));
+}
+
+#[test]
+fn sampling_sanity_check() {
+    let x = Distribution::from(Binomial::new(100, 0.5).unwrap()).into_cached();
+    let diff = (&x).sub(&x);
+    assert!(diff.map(|d| d == 0).pr(0.9999));
 }

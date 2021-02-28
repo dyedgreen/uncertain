@@ -15,6 +15,7 @@ where
     cache: Rc<Cell<Option<(usize, U::Value)>>>,
 }
 
+#[allow(deprecated)]
 impl<U> BoxedUncertain<U>
 where
     U: Uncertain,
@@ -28,6 +29,7 @@ where
     }
 }
 
+#[allow(deprecated)]
 impl<U> Clone for BoxedUncertain<U>
 where
     U: Uncertain,
@@ -41,6 +43,7 @@ where
     }
 }
 
+#[allow(deprecated)]
 impl<U> Uncertain for BoxedUncertain<U>
 where
     U: Uncertain,
@@ -72,6 +75,7 @@ mod tests {
     use rand_pcg::Pcg32;
 
     #[test]
+    #[allow(deprecated)]
     fn cloned_boxed_shares_values() {
         let x = Distribution::from(Normal::new(10.0, 1.0).unwrap());
         let x = x.into_boxed();
