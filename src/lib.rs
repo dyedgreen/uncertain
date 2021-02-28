@@ -61,22 +61,37 @@ pub trait Uncertain {
     type Value;
 
     /// Generate a random sample from the distribution underlying this
-    /// uncertain value. This is similar to [`rand::distributions::Distribution::sample`],
+    /// uncertain value. This is similar to [`Distribution::sample`],
     /// with one important difference:
     ///
-    /// If the type which implements [`Uncertain`] is either [`Copy`] or [`Clone`],
-    /// then it must guarantee that it will return the same value if queried with
-    /// the same epoch (but different rng state) consecutively for multiple times. This
-    /// is used to ensure that a single uncertain value is only sampled once, for every
-    /// iteration of the statistical test.
+    /// If the type which implements [`Uncertain`] is either [`Copy`] or [`Clone`], or if
+    /// its references implement [`Uncertain`], then it must guarantee that it will return
+    /// the same value if queried consecutively with the same epoch (but different rng state).
     ///
-    /// This is important, if a value is reused within a computation. E.g.
-    /// `x ~ P; x + x` is different from `x ~ P; x' ~ P; x + x'`.
+    /// This is important when a value is reused within a computation. Consider the following
+    /// example:
+    /// ```text
+    /// x ~ Normal(0, 1)
+    /// y ~ Normal(0, 1)
+    /// a = x + y
+    /// b = a + x
+    ///
+    /// Correct computation graph:      Incorrect computation graph:
+    /// x --+---------+                 x (copy) -----+
+    ///     |         |                               |
+    ///     |        (+) -> b           x --+        (+) -> b
+    ///     |         |                     |         |
+    ///    (+) -> a --+                    (+) -> a --+
+    ///     |                               |
+    /// y --+                           y --+
+    /// ```
     ///
     /// If your type is either [`Copy`] or [`Clone`], it is recommended to implement
-    /// [`rand::distributions::Distribution`] instead of this trait since any such type
+    /// [`Distribution`] instead of this trait since any such type
     /// automatically implements [`Into<Distribution>`] in a correct way.
     ///
+    /// [`Distribution`]: rand::distributions::Distribution
+    /// [`Distribution::sample`]: rand::distributions::Distribution::sample
     /// [`Into<Distribution>`]: Distribution
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R, epoch: usize) -> Self::Value;
 
@@ -172,9 +187,9 @@ pub trait Uncertain {
     /// Bundle this uncertain value with a cache, so it can be reused in a calculation.
     ///
     /// Uncertain values should normally not implement `Copy` or `Clone`, since the same value
-    /// is only allowed to be sampled once for every epoch. The cache added by this wrapper
-    /// allows a value to be reused, by caching the sample result for every epoch and implementing
-    /// [`Uncertain`] for references as well.
+    /// is only allowed to be sampled once for every epoch (see [`sample`](Uncertain::sample)). This wrapper
+    /// allows a value to be reused by caching the sample result for every epoch and implementing
+    /// [`Uncertain`] for references.
     ///
     /// # Examples
     ///
