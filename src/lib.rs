@@ -1,4 +1,5 @@
 #![warn(missing_docs)]
+#![allow(clippy::float_cmp)]
 
 //! Computation with uncertain values.
 //!
@@ -40,11 +41,13 @@
 //! [sprt]: https://en.wikipedia.org/wiki/Sequential_probability_ratio_test
 
 use adapters::*;
+use cached::CachedUncertain;
 use rand::Rng;
 use rand_pcg::Pcg32;
 
 mod adapters;
 mod boxed;
+mod cached;
 mod dist;
 mod sprt;
 
@@ -156,12 +159,43 @@ pub trait Uncertain {
     /// let bigger_than_twelve = b.map(|v| v > 12.0);
     /// assert!(bigger_than_twelve.pr(0.5));
     /// ```
+    #[deprecated(since = "0.2.1", note = "Please use `into_cached` instead")]
     fn into_boxed(self) -> BoxedUncertain<Self>
     where
         Self: 'static + Sized,
         Self::Value: Clone,
     {
         BoxedUncertain::new(self)
+    }
+
+    /// Bundle this uncertain value with a cache, so it can be reused in a calculation.
+    /// Normally, uncertain values do not implement `Copy` or `Clone`, since the same value
+    /// is only allowed to be sampled once for every epoch. The cache added by this wrapper
+    /// allows a value to be reused, by caching the sample result for every epoch and implementing
+    /// [`Uncertain`] for references as well.
+    ///
+    /// # Examples
+    ///
+    /// Basic usage:
+    ///
+    /// ```
+    /// use uncertain::{Uncertain, Distribution};
+    /// use rand_distr::Normal;
+    ///
+    /// let x = Distribution::from(Normal::new(5.0, 2.0).unwrap()).into_cached();
+    /// let y = Distribution::from(Normal::new(10.0, 5.0).unwrap());
+    /// let a = (&x).add(y);
+    /// let b = a.add(&x);
+    ///
+    /// let bigger_than_twelve = b.map(|v| v > 12.0);
+    /// assert!(bigger_than_twelve.pr(0.5));
+    /// ```
+    fn into_cached(self) -> CachedUncertain<Self>
+    where
+        Self: Sized,
+        Self::Value: Clone,
+    {
+        CachedUncertain::new(self)
     }
 
     /// Takes an uncertain value and produces another which
