@@ -159,6 +159,7 @@ pub trait Uncertain {
     /// let bigger_than_twelve = b.map(|v| v > 12.0);
     /// assert!(bigger_than_twelve.pr(0.5));
     /// ```
+    #[deprecated(since = "0.2.1", note = "Please use `into_cached` instead")]
     fn into_boxed(self) -> BoxedUncertain<Self>
     where
         Self: 'static + Sized,

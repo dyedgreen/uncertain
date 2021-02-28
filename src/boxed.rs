@@ -5,6 +5,7 @@ use std::rc::Rc;
 
 /// Boxed uncertain value. An uncertain value which can
 /// be cloned. See [`Uncertain::into_boxed`].
+#[deprecated(since = "0.2.1", note = "Please use `CachedUncertain` instead")]
 pub struct BoxedUncertain<U>
 where
     U: Uncertain,
