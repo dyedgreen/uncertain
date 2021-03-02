@@ -37,9 +37,7 @@ where
 {
     let upper_ln = (D1 / (1.0 - D1)).ln();
     let lower_ln = ((1.0 - D0) / D0).ln();
-
-    let val = src.sample(rng, 0).into();
-    let mut ratio_ln = log_likelyhood_ratio(prob, val);
+    let mut ratio_ln = 0.0;
 
     for step in 0..MAXS {
         for s in 0..STEP {
