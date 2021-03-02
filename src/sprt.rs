@@ -1,5 +1,5 @@
-use crate::Uncertain;
-use rand::Rng;
+use crate::UncertainBase;
+use rand_pcg::Pcg32;
 
 const D0: f32 = 0.999;
 const D1: f32 = 0.999;
@@ -29,11 +29,10 @@ fn log_likelyhood_ratio(prob: f32, val: bool) -> f32 {
     reject_likelyhood(prob, val).ln() - accept_likelyhood(prob, val).ln()
 }
 
-pub fn sequential_probability_ratio_test<U, R>(prob: f32, src: &U, rng: &mut R) -> bool
+pub fn sequential_probability_ratio_test<U>(prob: f32, src: &U, rng: &mut Pcg32) -> bool
 where
-    U: Uncertain + ?Sized,
+    U: UncertainBase + ?Sized,
     U::Value: Into<bool>,
-    R: Rng + ?Sized,
 {
     let upper_ln = (D1 / (1.0 - D1)).ln();
     let lower_ln = ((1.0 - D0) / D0).ln();

@@ -1,5 +1,4 @@
-use crate::Uncertain;
-use rand::Rng;
+use crate::{Rng, Uncertain, UncertainBase};
 
 pub struct FlatMap<U, F> {
     uncertain: U,
@@ -17,7 +16,7 @@ where
     }
 }
 
-impl<O, U, F> Uncertain for FlatMap<U, F>
+impl<O, U, F> UncertainBase for FlatMap<U, F>
 where
     U: Uncertain,
     O: Uncertain,
@@ -25,7 +24,7 @@ where
 {
     type Value = O::Value;
 
-    fn sample<R: Rng + ?Sized>(&self, rng: &mut R, epoch: usize) -> Self::Value {
+    fn sample(&self, rng: &mut Rng, epoch: usize) -> Self::Value {
         let v = self.uncertain.sample(rng, epoch);
         (self.func)(v).sample(rng, epoch)
     }

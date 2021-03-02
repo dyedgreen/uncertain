@@ -40,23 +40,26 @@
 //! [sprt]: https://en.wikipedia.org/wiki/Sequential_probability_ratio_test
 
 use adapters::*;
-use rand::Rng;
 use rand_pcg::Pcg32;
 use reference::RefUncertain;
 
 mod adapters;
 mod boxed;
 mod dist;
+mod point;
 mod reference;
 mod sprt;
 
-#[allow(deprecated)]
 pub use boxed::BoxedUncertain;
 pub use dist::Distribution;
+pub use point::PointMass;
 
-/// An interface for using uncertain values in computations.
-#[must_use = "uncertain values are lazy and do nothing unless queried"]
-pub trait Uncertain {
+pub(crate) type Rng = Pcg32;
+
+/// Methods required to sample from uncertain values.
+///
+/// You are probably looking for [`Uncertain`](crate::Uncertain).
+pub trait UncertainBase {
     /// The type of the contained value.
     type Value;
 
@@ -64,8 +67,8 @@ pub trait Uncertain {
     /// uncertain value. This is similar to [`Distribution::sample`],
     /// with one important difference:
     ///
-    /// If the type which implements [`Uncertain`] is either [`Copy`] or [`Clone`], or if
-    /// its references implement [`Uncertain`], then it must guarantee that it will return
+    /// If the type which implements `UncertainBase` is either [`Copy`] or [`Clone`], or if
+    /// its references implement `UncertainBase`, then it must guarantee that it will return
     /// the same value if queried consecutively with the same epoch (but different rng state).
     ///
     /// This is important when a value is reused within a computation. Consider the following
@@ -77,11 +80,11 @@ pub trait Uncertain {
     /// b = a + x
     ///
     /// Correct computation graph:      Incorrect computation graph:
-    /// x --+---------+                 x (copy) -----+
-    ///     |         |                               |
-    ///     |        (+) -> b           x --+        (+) -> b
-    ///     |         |                     |         |
-    ///    (+) -> a --+                    (+) -> a --+
+    /// x --+---------+                 x (2nd sample) --+
+    ///     |         |                                  |
+    ///     |        (+) -> b           x --+           (+) -> b
+    ///     |         |                     |            |
+    ///    (+) -> a --+                    (+) -> a -----+
     ///     |                               |
     /// y --+                           y --+
     /// ```
@@ -93,8 +96,12 @@ pub trait Uncertain {
     /// [`Distribution`]: rand::distributions::Distribution
     /// [`Distribution::sample`]: rand::distributions::Distribution::sample
     /// [`Into<Distribution>`]: Distribution
-    fn sample<R: Rng + ?Sized>(&self, rng: &mut R, epoch: usize) -> Self::Value;
+    fn sample(&self, rng: &mut Rng, epoch: usize) -> Self::Value;
+}
 
+/// An interface for using uncertain values in computations.
+#[must_use = "uncertain values are lazy and do nothing unless queried"]
+pub trait Uncertain: UncertainBase {
     /// Determine if the probability of obtaining `true` form this uncertain
     /// value is at least `probability`.
     ///
@@ -134,52 +141,40 @@ pub trait Uncertain {
     where
         Self::Value: Into<bool>,
     {
-        let mut rng = Pcg32::new(0xcafef00dd15ea5e5, 0xa02bdbf7bb3c0a7);
-        self.pr_with(&mut rng, probability)
-    }
-
-    /// Same as [`Uncertain::pr`], but generic over the random number
-    /// generator used to produce samples.
-    fn pr_with<R: Rng + ?Sized>(&self, rng: &mut R, probability: f32) -> bool
-    where
-        Self::Value: Into<bool>,
-    {
         if probability <= 0.0 || probability >= 1.0 {
             panic!("Probability {:?} must be in (0, 1)", probability);
         }
-        sprt::sequential_probability_ratio_test(probability, self, rng)
+
+        let mut rng = Pcg32::new(0xcafef00dd15ea5e5, 0xa02bdbf7bb3c0a7);
+        sprt::sequential_probability_ratio_test(probability, self, &mut rng)
     }
 
-    /// Box this uncertain value, so it can be reused in a calculation. Usually,
-    /// an uncertain value can not be cloned. To ensure that an uncertain value
-    /// can be cloned safely, it has to cache it's sampled value such that if
-    /// it is queried for the same `epoch` twice, it returns the same value.
+    /// Box this uncertain value, such that it's type becomes opaque. This is
+    /// necessary when you want to mix different sources for uncertain values
+    /// e.g. to return different distributions inside [`flat_map`](Self::flat_map).
     ///
-    /// [`BoxedUncertain`] wraps the uncertain value contained in  `self`, and
-    /// ensures it behaves correctly if sampled repeatedly.
+    /// This boxes the underlying uncertain value using a trait object and should
+    /// only be used if necessary.
     ///
     /// # Examples
     ///
-    /// Basic usage:
+    /// Basic example:
     ///
     /// ```
-    /// use uncertain::{Uncertain, Distribution};
-    /// use rand_distr::Normal;
+    /// use uncertain::{Uncertain, Distribution, PointMass};
+    /// use rand_distr::{Bernoulli, StandardNormal};
     ///
-    /// let x = Distribution::from(Normal::new(5.0, 2.0).unwrap()).into_boxed();
-    /// let y = Distribution::from(Normal::new(10.0, 5.0).unwrap());
-    /// let a = x.clone().add(y);
-    /// let b = a.add(x);
-    ///
-    /// let bigger_than_twelve = b.map(|v| v > 12.0);
-    /// assert!(bigger_than_twelve.pr(0.5));
+    /// let choice = Distribution::from(Bernoulli::new(0.5).unwrap());
+    /// let value = choice.flat_map(|fixed| if fixed {
+    ///     PointMass::new(5.0).into_boxed()
+    /// } else {
+    ///     Distribution::from(StandardNormal).into_boxed()
+    /// });
+    /// assert!(value.map(|v| v > 0.25).pr(0.5));
     /// ```
-    #[deprecated(since = "0.2.1", note = "Please use `into_ref` instead")]
-    #[allow(deprecated)]
-    fn into_boxed(self) -> BoxedUncertain<Self>
+    fn into_boxed(self) -> BoxedUncertain<Self::Value>
     where
-        Self: 'static + Sized,
-        Self::Value: Clone,
+        Self: 'static + Sized + Send,
     {
         BoxedUncertain::new(self)
     }
@@ -187,9 +182,9 @@ pub trait Uncertain {
     /// Bundle this uncertain value with a cache, so it can be reused in a calculation.
     ///
     /// Uncertain values should normally not implement `Copy` or `Clone`, since the same value
-    /// is only allowed to be sampled once for every epoch (see [`sample`](Uncertain::sample)). This wrapper
-    /// allows a value to be reused by caching the sample result for every epoch and implementing
-    /// [`Uncertain`] for references.
+    /// is only allowed to be sampled once for every epoch (see [`sample`](UncertainBase::sample)).
+    /// This wrapper allows a value to be reused by caching the sample result for every epoch and
+    /// implementing [`Uncertain`] for references.
     ///
     /// # Examples
     ///
@@ -475,3 +470,5 @@ pub trait Uncertain {
         Ratio::new(self, other)
     }
 }
+
+impl<U: UncertainBase> Uncertain for U {}

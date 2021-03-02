@@ -1,10 +1,9 @@
-use crate::Uncertain;
-use rand::Rng;
+use crate::{Rng, UncertainBase};
 use std::cell::Cell;
 
 pub struct RefUncertain<U>
 where
-    U: Uncertain,
+    U: UncertainBase,
     U::Value: Clone,
 {
     uncertain: U,
@@ -13,25 +12,25 @@ where
 
 impl<U> RefUncertain<U>
 where
-    U: Uncertain,
+    U: UncertainBase,
     U::Value: Clone,
 {
     pub(crate) fn new(contained: U) -> Self {
-        RefUncertain {
+        Self {
             uncertain: contained,
             cache: Cell::new(None),
         }
     }
 }
 
-impl<U> Uncertain for &RefUncertain<U>
+impl<U> UncertainBase for &RefUncertain<U>
 where
-    U: Uncertain,
+    U: UncertainBase,
     U::Value: Clone,
 {
     type Value = U::Value;
 
-    fn sample<R: Rng + ?Sized>(&self, rng: &mut R, epoch: usize) -> Self::Value {
+    fn sample(&self, rng: &mut Rng, epoch: usize) -> Self::Value {
         let value = match self.cache.take() {
             Some((cache_epoch, cache_value)) if cache_epoch == epoch => cache_value,
             _ => self.uncertain.sample(rng, epoch),
@@ -41,21 +40,21 @@ where
     }
 }
 
-impl<U> Uncertain for RefUncertain<U>
+impl<U> UncertainBase for RefUncertain<U>
 where
-    U: Uncertain,
+    U: UncertainBase,
     U::Value: Clone,
 {
     type Value = U::Value;
 
-    fn sample<R: Rng + ?Sized>(&self, rng: &mut R, epoch: usize) -> Self::Value {
-        <&Self as Uncertain>::sample(&self, rng, epoch)
+    fn sample(&self, rng: &mut Rng, epoch: usize) -> Self::Value {
+        <&Self as UncertainBase>::sample(&self, rng, epoch)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{Distribution, Uncertain};
+    use crate::{Distribution, Uncertain, UncertainBase};
     use rand_distr::Normal;
     use rand_pcg::Pcg32;
 
