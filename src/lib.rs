@@ -56,10 +56,9 @@ pub use point::PointMass;
 
 pub(crate) type Rng = Pcg32;
 
-/// Methods required to sample from uncertain values.
-///
-/// You are probably looking for [`Uncertain`](crate::Uncertain).
-pub trait UncertainBase {
+/// An interface for using uncertain values in computations.
+#[must_use = "uncertain values are lazy and do nothing unless queried"]
+pub trait Uncertain {
     /// The type of the contained value.
     type Value;
 
@@ -97,11 +96,7 @@ pub trait UncertainBase {
     /// [`Distribution::sample`]: rand::distributions::Distribution::sample
     /// [`Into<Distribution>`]: Distribution
     fn sample(&self, rng: &mut Rng, epoch: usize) -> Self::Value;
-}
 
-/// An interface for using uncertain values in computations.
-#[must_use = "uncertain values are lazy and do nothing unless queried"]
-pub trait Uncertain: UncertainBase {
     /// Determine if the probability of obtaining `true` form this uncertain
     /// value is at least `probability`.
     ///
@@ -182,7 +177,7 @@ pub trait Uncertain: UncertainBase {
     /// Bundle this uncertain value with a cache, so it can be reused in a calculation.
     ///
     /// Uncertain values should normally not implement `Copy` or `Clone`, since the same value
-    /// is only allowed to be sampled once for every epoch (see [`sample`](UncertainBase::sample)).
+    /// is only allowed to be sampled once for every epoch (see [`sample`](Self::sample)).
     /// This wrapper allows a value to be reused by caching the sample result for every epoch and
     /// implementing [`Uncertain`] for references.
     ///
@@ -470,5 +465,3 @@ pub trait Uncertain: UncertainBase {
         Ratio::new(self, other)
     }
 }
-
-impl<U: UncertainBase> Uncertain for U {}

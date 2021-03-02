@@ -1,4 +1,4 @@
-use crate::{Rng, Uncertain, UncertainBase};
+use crate::{Rng, Uncertain};
 
 pub struct Join<A, B, F> {
     a: A,
@@ -17,7 +17,7 @@ where
     }
 }
 
-impl<O, A, B, F> UncertainBase for Join<A, B, F>
+impl<O, A, B, F> Uncertain for Join<A, B, F>
 where
     A: Uncertain,
     B: Uncertain,

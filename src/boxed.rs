@@ -1,4 +1,4 @@
-use crate::{Rng, Uncertain, UncertainBase};
+use crate::{Rng, Uncertain};
 use std::boxed::Box;
 
 /// An opaque uncertain value. This is useful when you need to conditionally
@@ -18,7 +18,7 @@ impl<T> BoxedUncertain<T> {
     }
 }
 
-impl<T> UncertainBase for BoxedUncertain<T> {
+impl<T> Uncertain for BoxedUncertain<T> {
     type Value = T;
 
     fn sample(&self, rng: &mut Rng, epoch: usize) -> Self::Value {

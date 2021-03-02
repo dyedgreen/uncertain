@@ -1,4 +1,4 @@
-use crate::{Rng, Uncertain, UncertainBase};
+use crate::{Rng, Uncertain};
 
 pub struct Not<U>
 where
@@ -18,7 +18,7 @@ where
     }
 }
 
-impl<U> UncertainBase for Not<U>
+impl<U> Uncertain for Not<U>
 where
     U: Uncertain,
     U::Value: Into<bool>,
@@ -55,7 +55,7 @@ macro_rules! logic_op {
             }
         }
 
-        impl<A, B> UncertainBase for $name<A, B>
+        impl<A, B> Uncertain for $name<A, B>
         where
             A: Uncertain,
             B: Uncertain,
@@ -94,7 +94,7 @@ macro_rules! binary_op {
             }
         }
 
-        impl<A, B> UncertainBase for $name<A, B>
+        impl<A, B> Uncertain for $name<A, B>
         where
             A: Uncertain,
             B: Uncertain,
@@ -119,11 +119,11 @@ binary_op!(Ratio, /, Div);
 
 #[cfg(test)]
 mod tests {
-    use crate::{Rng, Uncertain, UncertainBase};
+    use crate::{Rng, Uncertain};
 
     struct FixedValue<T>(T);
 
-    impl<T: Clone> UncertainBase for FixedValue<T> {
+    impl<T: Clone> Uncertain for FixedValue<T> {
         type Value = T;
 
         fn sample(&self, _rng: &mut Rng, _epoch: usize) -> T {

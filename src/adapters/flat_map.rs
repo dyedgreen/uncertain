@@ -1,4 +1,4 @@
-use crate::{Rng, Uncertain, UncertainBase};
+use crate::{Rng, Uncertain};
 
 pub struct FlatMap<U, F> {
     uncertain: U,
@@ -16,7 +16,7 @@ where
     }
 }
 
-impl<O, U, F> UncertainBase for FlatMap<U, F>
+impl<O, U, F> Uncertain for FlatMap<U, F>
 where
     U: Uncertain,
     O: Uncertain,
