@@ -1,5 +1,4 @@
-use crate::Uncertain;
-use rand::Rng;
+use crate::{Rng, Uncertain, UncertainBase};
 
 pub struct Join<A, B, F> {
     a: A,
@@ -18,7 +17,7 @@ where
     }
 }
 
-impl<O, A, B, F> Uncertain for Join<A, B, F>
+impl<O, A, B, F> UncertainBase for Join<A, B, F>
 where
     A: Uncertain,
     B: Uncertain,
@@ -26,7 +25,7 @@ where
 {
     type Value = O;
 
-    fn sample<R: Rng + ?Sized>(&self, rng: &mut R, epoch: usize) -> Self::Value {
+    fn sample(&self, rng: &mut Rng, epoch: usize) -> Self::Value {
         let a = self.a.sample(rng, epoch);
         let b = self.b.sample(rng, epoch);
         (self.func)(a, b)

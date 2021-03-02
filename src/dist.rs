@@ -1,5 +1,4 @@
-use crate::Uncertain;
-use rand::Rng;
+use crate::{Rng, UncertainBase};
 use std::marker::PhantomData;
 
 /// Wraps a [`Distribution`](rand::distributions::Distribution) to create uncertain
@@ -20,7 +19,7 @@ where
     /// Construct a new [`impl Uncertain`] from a
     /// distribution.
     ///
-    /// [`impl Uncertain`]: Uncertain
+    /// [`impl Uncertain`]: crate::Uncertain
     pub fn from(dist: D) -> Self {
         Self {
             dist,
@@ -29,13 +28,13 @@ where
     }
 }
 
-impl<T, D> Uncertain for Distribution<T, D>
+impl<T, D> UncertainBase for Distribution<T, D>
 where
     D: rand::distributions::Distribution<T>,
 {
     type Value = T;
 
-    fn sample<R: Rng + ?Sized>(&self, rng: &mut R, _epoch: usize) -> Self::Value {
+    fn sample(&self, rng: &mut Rng, _epoch: usize) -> Self::Value {
         self.dist.sample(rng)
     }
 }

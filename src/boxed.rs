@@ -1,88 +1,55 @@
-use crate::Uncertain;
-use rand::Rng;
-use std::cell::Cell;
-use std::rc::Rc;
+use crate::{Rng, Uncertain, UncertainBase};
+use std::boxed::Box;
 
-/// Boxed uncertain value. An uncertain value which can
-/// be cloned. See [`Uncertain::into_boxed`].
-#[deprecated(since = "0.2.1")]
-pub struct BoxedUncertain<U>
-where
-    U: Uncertain,
-    U::Value: Clone,
-{
-    ptr: Rc<U>,
-    cache: Rc<Cell<Option<(usize, U::Value)>>>,
+/// An opaque uncertain value. This is useful when you need to conditionally
+/// return different uncertain values. See [`into_boxed`](Uncertain::into_boxed).
+pub struct BoxedUncertain<T> {
+    ptr: Box<dyn Uncertain<Value = T> + Send>,
 }
 
-#[allow(deprecated)]
-impl<U> BoxedUncertain<U>
-where
-    U: Uncertain,
-    U::Value: Clone,
-{
-    pub(crate) fn new(contained: U) -> Self {
-        BoxedUncertain {
-            ptr: Rc::new(contained),
-            cache: Rc::new(Cell::new(None)),
+impl<T> BoxedUncertain<T> {
+    pub(crate) fn new<U>(contained: U) -> Self
+    where
+        U: 'static + Uncertain<Value = T> + Send,
+    {
+        Self {
+            ptr: Box::new(contained),
         }
     }
 }
 
-#[allow(deprecated)]
-impl<U> Clone for BoxedUncertain<U>
-where
-    U: Uncertain,
-    U::Value: Clone,
-{
-    fn clone(&self) -> Self {
-        BoxedUncertain {
-            ptr: self.ptr.clone(),
-            cache: self.cache.clone(),
-        }
-    }
-}
+impl<T> UncertainBase for BoxedUncertain<T> {
+    type Value = T;
 
-#[allow(deprecated)]
-impl<U> Uncertain for BoxedUncertain<U>
-where
-    U: Uncertain,
-    U::Value: Clone,
-{
-    type Value = U::Value;
-
-    fn sample<R: Rng + ?Sized>(&self, rng: &mut R, epoch: usize) -> Self::Value {
-        let cache = self.cache.take();
-        let value = match cache {
-            Some((cache_epoch, cache_value)) => {
-                if cache_epoch == epoch {
-                    cache_value
-                } else {
-                    self.ptr.sample(rng, epoch)
-                }
-            }
-            None => self.ptr.sample(rng, epoch),
-        };
-        self.cache.set(Some((epoch, value.clone())));
-        value
+    fn sample(&self, rng: &mut Rng, epoch: usize) -> Self::Value {
+        self.ptr.sample(rng, epoch)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::{Distribution, Uncertain};
-    use rand_distr::Normal;
-    use rand_pcg::Pcg32;
+    use rand_distr::{Bernoulli, Exp1, StandardNormal};
 
     #[test]
-    #[allow(deprecated)]
-    fn cloned_boxed_shares_values() {
-        let x = Distribution::from(Normal::new(10.0, 1.0).unwrap());
-        let x = x.into_boxed();
-        let y = x.clone();
-        let mut rng = Pcg32::new(0xcafef00dd15ea5e5, 0xa02bdbf7bb3c0a7);
-        for epoch in 0..1000 {
-            assert_eq!(x.sample(&mut rng, epoch), y.sample(&mut rng, epoch));
-        }
+    fn boxed_uncertain_allows_mixed_sources() {
+        let choice = Distribution::from(Bernoulli::new(0.5).unwrap());
+        let value = choice.flat_map(|choice| {
+            if choice {
+                Distribution::from(Exp1).into_boxed()
+            } else {
+                Distribution::from(StandardNormal).into_boxed()
+            }
+        });
+
+        assert!(value.map(|v: f32| v < 2.0).pr(0.9));
+    }
+
+    #[test]
+    fn boxed_works_with_into_ref() {
+        let x = Distribution::from(Bernoulli::new(0.5).unwrap())
+            .into_ref()
+            .into_boxed();
+        assert!(x.pr(0.5));
     }
 }

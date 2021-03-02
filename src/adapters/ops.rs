@@ -1,5 +1,4 @@
-use crate::Uncertain;
-use rand::Rng;
+use crate::{Rng, Uncertain, UncertainBase};
 
 pub struct Not<U>
 where
@@ -19,14 +18,14 @@ where
     }
 }
 
-impl<U> Uncertain for Not<U>
+impl<U> UncertainBase for Not<U>
 where
     U: Uncertain,
     U::Value: Into<bool>,
 {
     type Value = bool;
 
-    fn sample<R: Rng + ?Sized>(&self, rng: &mut R, epoch: usize) -> Self::Value {
+    fn sample(&self, rng: &mut Rng, epoch: usize) -> Self::Value {
         !self.uncertain.sample(rng, epoch).into()
     }
 }
@@ -56,7 +55,7 @@ macro_rules! logic_op {
             }
         }
 
-        impl<A, B> Uncertain for $name<A, B>
+        impl<A, B> UncertainBase for $name<A, B>
         where
             A: Uncertain,
             B: Uncertain,
@@ -65,7 +64,7 @@ macro_rules! logic_op {
         {
             type Value = bool;
 
-            fn sample<R: Rng + ?Sized>(&self, rng: &mut R, epoch: usize) -> Self::Value {
+            fn sample(&self, rng: &mut Rng, epoch: usize) -> Self::Value {
                 self.a.sample(rng, epoch).into() $op self.b.sample(rng, epoch).into()
             }
         }
@@ -95,7 +94,7 @@ macro_rules! binary_op {
             }
         }
 
-        impl<A, B> Uncertain for $name<A, B>
+        impl<A, B> UncertainBase for $name<A, B>
         where
             A: Uncertain,
             B: Uncertain,
@@ -103,7 +102,7 @@ macro_rules! binary_op {
         {
             type Value = <A::Value as std::ops::$trait<B::Value>>::Output;
 
-            fn sample<R: Rng + ?Sized>(&self, rng: &mut R, epoch: usize) -> Self::Value {
+            fn sample(&self, rng: &mut Rng, epoch: usize) -> Self::Value {
                 self.a.sample(rng, epoch) $op self.b.sample(rng, epoch)
             }
         }
@@ -120,15 +119,14 @@ binary_op!(Ratio, /, Div);
 
 #[cfg(test)]
 mod tests {
-    use crate::Uncertain;
-    use rand::Rng;
+    use crate::{Rng, Uncertain, UncertainBase};
 
     struct FixedValue<T>(T);
 
-    impl<T: Clone> Uncertain for FixedValue<T> {
+    impl<T: Clone> UncertainBase for FixedValue<T> {
         type Value = T;
 
-        fn sample<R: Rng + ?Sized>(&self, _rng: &mut R, _epoch: usize) -> T {
+        fn sample(&self, _rng: &mut Rng, _epoch: usize) -> T {
             self.0.clone()
         }
     }
