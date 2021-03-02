@@ -2,7 +2,7 @@ use crate::Uncertain;
 use rand::Rng;
 use std::marker::PhantomData;
 
-/// Wraps a [`rand::distributions::Distribution`] to create uncertain
+/// Wraps a [`Distribution`](rand::distributions::Distribution) to create uncertain
 /// values from probability distributions and ensure they have the
 /// correct [`Copy`] and [`Clone`] semantics.
 pub struct Distribution<T, D>
