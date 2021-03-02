@@ -1,4 +1,4 @@
-use crate::{Rng, UncertainBase};
+use crate::{Rng, Uncertain};
 use std::marker::PhantomData;
 
 /// Wraps a [`Distribution`](rand::distributions::Distribution) to create uncertain
@@ -28,7 +28,7 @@ where
     }
 }
 
-impl<T, D> UncertainBase for Distribution<T, D>
+impl<T, D> Uncertain for Distribution<T, D>
 where
     D: rand::distributions::Distribution<T>,
 {

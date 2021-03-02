@@ -1,4 +1,4 @@
-use crate::{Rng, UncertainBase};
+use crate::{Rng, Uncertain};
 
 /// An uncertain value which is distributed as a
 /// point mass around a single value. This is useful
@@ -23,7 +23,7 @@ where
     }
 }
 
-impl<T> UncertainBase for PointMass<T>
+impl<T> Uncertain for PointMass<T>
 where
     T: Clone,
 {

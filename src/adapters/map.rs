@@ -1,4 +1,4 @@
-use crate::{Rng, Uncertain, UncertainBase};
+use crate::{Rng, Uncertain};
 
 pub struct Map<U, F> {
     uncertain: U,
@@ -15,7 +15,7 @@ where
     }
 }
 
-impl<T, U, F> UncertainBase for Map<U, F>
+impl<T, U, F> Uncertain for Map<U, F>
 where
     U: Uncertain,
     F: Fn(U::Value) -> T,

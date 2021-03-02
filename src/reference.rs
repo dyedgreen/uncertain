@@ -1,9 +1,9 @@
-use crate::{Rng, UncertainBase};
+use crate::{Rng, Uncertain};
 use std::cell::Cell;
 
 pub struct RefUncertain<U>
 where
-    U: UncertainBase,
+    U: Uncertain,
     U::Value: Clone,
 {
     uncertain: U,
@@ -12,7 +12,7 @@ where
 
 impl<U> RefUncertain<U>
 where
-    U: UncertainBase,
+    U: Uncertain,
     U::Value: Clone,
 {
     pub(crate) fn new(contained: U) -> Self {
@@ -23,9 +23,9 @@ where
     }
 }
 
-impl<U> UncertainBase for &RefUncertain<U>
+impl<U> Uncertain for &RefUncertain<U>
 where
-    U: UncertainBase,
+    U: Uncertain,
     U::Value: Clone,
 {
     type Value = U::Value;
@@ -40,21 +40,21 @@ where
     }
 }
 
-impl<U> UncertainBase for RefUncertain<U>
+impl<U> Uncertain for RefUncertain<U>
 where
-    U: UncertainBase,
+    U: Uncertain,
     U::Value: Clone,
 {
     type Value = U::Value;
 
     fn sample(&self, rng: &mut Rng, epoch: usize) -> Self::Value {
-        <&Self as UncertainBase>::sample(&self, rng, epoch)
+        <&Self as Uncertain>::sample(&self, rng, epoch)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{Distribution, Uncertain, UncertainBase};
+    use crate::{Distribution, Uncertain};
     use rand_distr::Normal;
     use rand_pcg::Pcg32;
 
