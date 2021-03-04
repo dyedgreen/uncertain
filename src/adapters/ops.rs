@@ -119,71 +119,61 @@ binary_op!(Ratio, /, Div);
 
 #[cfg(test)]
 mod tests {
-    use crate::{Rng, Uncertain};
-
-    struct FixedValue<T>(T);
-
-    impl<T: Clone> Uncertain for FixedValue<T> {
-        type Value = T;
-
-        fn sample(&self, _rng: &mut Rng, _epoch: usize) -> T {
-            self.0.clone()
-        }
-    }
+    use crate::{PointMass, Uncertain};
 
     #[test]
     fn op_not() {
-        let a = FixedValue(false);
+        let a = PointMass::new(false);
         assert!(a.not().pr(0.99999));
     }
 
     #[test]
     fn op_and() {
-        let a = FixedValue(true);
-        let b = FixedValue(true);
+        let a = PointMass::new(true);
+        let b = PointMass::new(true);
         assert!(a.and(b).pr(0.99999));
 
-        let a = FixedValue(true);
-        let b = FixedValue(false);
+        let a = PointMass::new(true);
+        let b = PointMass::new(false);
         assert_eq!(a.and(b).pr(0.00001), false);
     }
 
     #[test]
     fn op_or() {
-        let a = FixedValue(false);
-        let b = FixedValue(true);
+        let a = PointMass::new(false);
+        let b = PointMass::new(true);
         assert!(a.or(b).pr(0.99999));
 
-        let a = FixedValue(false);
-        let b = FixedValue(false);
+        let a = PointMass::new(false);
+        let b = PointMass::new(false);
         assert_eq!(a.or(b).pr(0.00001), false);
     }
 
     #[test]
     fn op_add() {
-        let a = FixedValue(5);
-        let b = FixedValue(9);
+        let a = PointMass::new(5);
+        let b = PointMass::new(9);
         assert!(a.add(b).map(|sum| sum == 5 + 9).pr(0.99999));
     }
 
     #[test]
     fn op_sub() {
-        let a = FixedValue(5);
-        let b = FixedValue(9);
+        let a = PointMass::new(5);
+        let b = PointMass::new(9);
         assert!(a.sub(b).map(|sum| sum == 5 - 9).pr(0.99999));
     }
 
     #[test]
     fn op_mul() {
-        let a = FixedValue(5);
-        let b = FixedValue(9);
+        let a = PointMass::new(5);
+        let b = PointMass::new(9);
         assert!(a.mul(b).map(|sum| sum == 5 * 9).pr(0.99999));
     }
 
     #[test]
     fn op_div() {
-        let a = FixedValue(5.0);
-        let b = FixedValue(9.0);
+        let a = PointMass::new(5.0);
+        let b = PointMass::new(9.0);
         assert!(a.div(b).map(|sum| sum == 5.0 / 9.0).pr(0.99999));
     }
 }

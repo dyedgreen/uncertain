@@ -1,8 +1,10 @@
 use crate::{Rng, Uncertain};
 use std::boxed::Box;
 
-/// An opaque uncertain value. This is useful when you need to conditionally
-/// return different uncertain values. See [`into_boxed`](Uncertain::into_boxed).
+/// An opaque uncertain value.
+///
+/// This is useful when you need to conditionally return different uncertain values.
+/// See [`into_boxed`](Uncertain::into_boxed).
 pub struct BoxedUncertain<T> {
     ptr: Box<dyn Uncertain<Value = T> + Send>,
 }
