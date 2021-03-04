@@ -66,8 +66,8 @@ pub trait Uncertain {
     /// uncertain value. This is similar to [`Distribution::sample`],
     /// with one important difference:
     ///
-    /// If the type which implements `UncertainBase` is either [`Copy`] or [`Clone`], or if
-    /// its references implement `UncertainBase`, then it must guarantee that it will return
+    /// If the type which implements `Uncertain` is either [`Copy`] or [`Clone`], or if
+    /// its references implement `Uncertain`, then it must guarantee that it will return
     /// the same value if queried consecutively with the same epoch (but different rng state).
     ///
     /// This is important when a value is reused within a computation. Consider the following
