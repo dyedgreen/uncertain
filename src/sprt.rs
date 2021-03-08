@@ -29,11 +29,14 @@ fn log_likelyhood_ratio(prob: f32, val: bool) -> f32 {
     reject_likelyhood(prob, val).ln() - accept_likelyhood(prob, val).ln()
 }
 
-pub fn sequential_probability_ratio_test<U>(prob: f32, src: &U, rng: &mut Pcg32) -> bool
+/// Compute the sequential probability ration test.
+pub fn compute<U>(src: &U, prob: f32) -> bool
 where
     U: Uncertain + ?Sized,
     U::Value: Into<bool>,
 {
+    let mut rng = Pcg32::new(0xcafef00dd15ea5e5, 0xa02bdbf7bb3c0a7);
+
     let upper_ln = (D1 / (1.0 - D1)).ln();
     let lower_ln = ((1.0 - D0) / D0).ln();
     let mut ratio_ln = 0.0;
@@ -41,7 +44,7 @@ where
     for step in 0..MAXS {
         for s in 0..STEP {
             let epoch = STEP * step + s;
-            let val = src.sample(rng, epoch).into();
+            let val = src.sample(&mut rng, epoch).into();
             ratio_ln += log_likelyhood_ratio(prob, val);
         }
         if ratio_ln > upper_ln || ratio_ln < lower_ln {
@@ -57,15 +60,13 @@ mod tests {
     use super::*;
     use crate::*;
     use rand_distr::Bernoulli;
-    use rand_pcg::Pcg32;
 
     #[test]
     fn basic_sprt_works() {
         let src = Distribution::from(Bernoulli::new(0.5).unwrap());
-        let mut rng = Pcg32::new(0xcafef00dd15ea5e5, 0xa02bdbf7bb3c0a7);
 
-        assert!(sequential_probability_ratio_test(0.4, &src, &mut rng));
-        assert!(!sequential_probability_ratio_test(0.6, &src, &mut rng));
+        assert!(compute(&src, 0.4));
+        assert!(!compute(&src, 0.6));
     }
 
     #[test]

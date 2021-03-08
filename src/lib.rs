@@ -46,6 +46,7 @@ use reference::RefUncertain;
 mod adapters;
 mod boxed;
 mod dist;
+mod expectation;
 mod point;
 mod reference;
 mod sprt;
@@ -53,6 +54,8 @@ mod sprt;
 pub use boxed::BoxedUncertain;
 pub use dist::Distribution;
 pub use point::PointMass;
+
+pub use expectation::ConvergenceError;
 
 pub(crate) type Rng = Pcg32;
 
@@ -140,8 +143,18 @@ pub trait Uncertain {
             panic!("Probability {:?} must be in (0, 1)", probability);
         }
 
-        let mut rng = Pcg32::new(0xcafef00dd15ea5e5, 0xa02bdbf7bb3c0a7);
-        sprt::sequential_probability_ratio_test(probability, self, &mut rng)
+        sprt::compute(self, probability)
+    }
+
+    fn expect(&self, precision: f64) -> Result<f64, ConvergenceError>
+    where
+        Self::Value: Into<f64>,
+    {
+        if precision <= 0.0 {
+            panic!("Precision {:?} must be larger than 0", precision);
+        }
+
+        expectation::compute(self, precision)
     }
 
     /// Box this uncertain value, such that it's type becomes opaque. This is
