@@ -33,11 +33,11 @@ impl fmt::Display for ConvergenceError {
 impl Error for ConvergenceError {}
 
 fn sample_variance(diff_sum: f64, steps: f64) -> f64 {
-    diff_sum / steps
+    diff_sum / steps // = sigma^2 i.e. var(x)
 }
 
 fn mean_standard_deviation(diff_sum: f64, steps: f64) -> f64 {
-    diff_sum.sqrt() / steps // = sqrt( sigma^2 / n )
+    diff_sum.sqrt() / steps // = sqrt( sigma^2 / n ) i.e. sqrt(var(E(x)))
 }
 
 /// Compute the sample expectation.
@@ -57,6 +57,8 @@ where
             let sample = src.sample(&mut rng, steps as usize).into();
             let prev_sample_mean = sample_mean;
 
+            // Using Welford's online algorithm:
+            // https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
             steps += 1.0;
             sample_mean = prev_sample_mean + (sample - prev_sample_mean) / steps;
             diff_sum = diff_sum + (sample - prev_sample_mean) * (sample - sample_mean);
