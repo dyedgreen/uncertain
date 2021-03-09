@@ -40,6 +40,7 @@
 //! [sprt]: https://en.wikipedia.org/wiki/Sequential_probability_ratio_test
 
 use adapters::*;
+use num_traits::{identities, Float};
 use rand_pcg::Pcg32;
 use reference::RefUncertain;
 
@@ -146,12 +147,12 @@ pub trait Uncertain {
         sprt::compute(self, probability)
     }
 
-    fn expect(&self, precision: f64) -> Result<f64, ConvergenceError>
+    fn expect(&self, precision: Self::Value) -> Result<Self::Value, ConvergenceError<Self::Value>>
     where
-        Self::Value: Into<f64>,
+        Self::Value: Float,
     {
-        if precision <= 0.0 {
-            panic!("Precision {:?} must be larger than 0", precision);
+        if precision <= identities::zero() {
+            panic!("Precision must be larger than 0");
         }
 
         expectation::compute(self, precision)

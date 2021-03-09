@@ -41,9 +41,9 @@ where
     let lower_ln = ((1.0 - D0) / D0).ln();
     let mut ratio_ln = 0.0;
 
-    for step in 0..MAXS {
-        for s in 0..STEP {
-            let epoch = STEP * step + s;
+    for batch in 0..MAXS {
+        for batch_step in 0..STEP {
+            let epoch = STEP * batch + batch_step;
             let val = src.sample(&mut rng, epoch).into();
             ratio_ln += log_likelyhood_ratio(prob, val);
         }
