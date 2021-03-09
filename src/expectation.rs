@@ -1,4 +1,5 @@
 use crate::Uncertain;
+use num_traits::{identities, Float};
 use rand_pcg::Pcg32;
 use std::error::Error;
 use std::fmt;
@@ -7,64 +8,67 @@ const STEP: usize = 10;
 const MAXS: usize = 1000;
 
 #[derive(Debug, Clone)]
-pub struct ConvergenceError {
-    sample_mean: f64,
-    diff_sum: f64,
-    steps: f64,
-    precision: f64,
+pub struct ConvergenceError<F>
+where
+    F: Float,
+{
+    sample_mean: F,
+    diff_sum: F,
+    steps: F,
+    precision: F,
 }
 
-impl ConvergenceError {
+impl<F: Float> ConvergenceError<F> {
     // TODO
 }
 
-impl fmt::Display for ConvergenceError {
+impl<F: Float + fmt::Display> fmt::Display for ConvergenceError<F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let std = mean_standard_deviation(self.diff_sum, self.steps);
         // TODO
         write!(
             f,
             "Expected value {} +/- {} did not converge to desired precision {}",
-            self.sample_mean, std, self.precision
+            self.sample_mean,
+            std + std,
+            self.precision
         )
     }
 }
 
-impl Error for ConvergenceError {}
+impl<F: Float + fmt::Debug + fmt::Display> Error for ConvergenceError<F> {}
 
-fn sample_variance(diff_sum: f64, steps: f64) -> f64 {
-    diff_sum / steps // = sigma^2 i.e. var(x)
-}
-
-fn mean_standard_deviation(diff_sum: f64, steps: f64) -> f64 {
+fn mean_standard_deviation<F: Float>(diff_sum: F, steps: F) -> F {
     diff_sum.sqrt() / steps // = sqrt( sigma^2 / n ) i.e. sqrt(var(E(x)))
 }
 
 /// Compute the sample expectation.
-pub fn compute<U>(src: &U, precision: f64) -> Result<f64, ConvergenceError>
+pub fn compute<U>(src: &U, precision: U::Value) -> Result<U::Value, ConvergenceError<U::Value>>
 where
     U: Uncertain + ?Sized,
-    U::Value: Into<f64>,
+    U::Value: Float,
 {
     let mut rng = Pcg32::new(0xcafef00dd15ea5e5, 0xa02bdbf7bb3c0a7);
 
-    let mut sample_mean = 0.0;
-    let mut diff_sum = 0.0;
-    let mut steps = 0.0;
+    let mut sample_mean = identities::zero();
+    let mut diff_sum = identities::zero();
+    let mut steps = identities::zero();
 
-    for _ in 0..MAXS {
-        for _ in 0..STEP {
-            let sample = src.sample(&mut rng, steps as usize).into();
+    for batch in 0..MAXS {
+        for batch_step in 0..STEP {
+            let epoch = STEP * batch + batch_step;
+            let sample = src.sample(&mut rng, epoch);
             let prev_sample_mean = sample_mean;
 
             // Using Welford's online algorithm:
             // https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
-            steps += 1.0;
+            steps = steps + identities::one();
             sample_mean = prev_sample_mean + (sample - prev_sample_mean) / steps;
             diff_sum = diff_sum + (sample - prev_sample_mean) * (sample - sample_mean);
         }
 
-        if mean_standard_deviation(diff_sum, steps) <= precision {
+        let std = mean_standard_deviation(diff_sum, steps);
+        if std + std <= precision {
             return Ok(sample_mean);
         }
     }
