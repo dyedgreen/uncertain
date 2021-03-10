@@ -66,7 +66,7 @@ pub trait Uncertain {
     /// The type of the contained value.
     type Value;
 
-    /// Generate a random sample from the distribution underlying this
+    /// Generate a random sample from the distribution of this
     /// uncertain value. This is similar to [`Distribution::sample`],
     /// with one important difference:
     ///
@@ -107,7 +107,7 @@ pub trait Uncertain {
     /// This function evaluates a statistical test by sampling the underlying
     /// uncertain value and determining if it is plausible that it has been
     /// generated from a [Bernoulli distribution][bernoulli]
-    /// with a value of p of *at least* `probability`. (I.e. if hypothesis
+    /// with a value of p of at least `probability`. (I.e. if hypothesis
     /// `H_0: p >= probability` is plausible.)
     ///
     /// The underlying implementation uses the [sequential probability ratio test][sprt],
@@ -156,8 +156,12 @@ pub trait Uncertain {
     /// to obtain the non converged expectation and estimated error.
     ///
     /// Note that this value should typically not be used in further computation or in
-    /// comparisons. It is usually more expensive to calculate than [`pr`](Uncertain::pr), and
+    /// comparisons. It is usually more expensive to calculate than [`pr`](Uncertain::pr) and
     /// calculations or comparisons using the resulting value can be miss-leading.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `precision <= 0`.
     ///
     /// # Example
     ///
