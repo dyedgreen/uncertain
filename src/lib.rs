@@ -147,6 +147,58 @@ pub trait Uncertain {
         sprt::compute(self, probability)
     }
 
+    /// Calculate the expectation of this uncertain value to the desired
+    /// precision. This can be useful e.g. when displaying values in a user
+    /// interface.
+    ///
+    /// If the expected value does not converge to within the desired precision,
+    /// a [`ConvergenceError`](ConvergenceError) is returned which can be used
+    /// to obtain the non converged expectation and estimated error.
+    ///
+    /// Note that this value should typically not be used in further computation or in
+    /// comparisons. It is usually more expensive to calculate than [`pr`](Uncertain::pr), and
+    /// calculations or comparisons using the resulting value can be miss-leading.
+    ///
+    /// # Example
+    ///
+    /// If we have a [bimodal][multi-modal] distribution, the expected value can lead to confusing
+    /// results:
+    ///
+    /// ```
+    /// use uncertain::{Uncertain, Distribution};
+    /// use rand_distr::Bernoulli;
+    ///
+    /// let choice = Distribution::from(Bernoulli::new(0.6).unwrap());
+    /// let value = choice.map(|c| if c { 1.0 } else { -1.0 }).into_ref();
+    ///
+    /// let bigger_eq_zero = (&value).map(|v| v >= 0.0);
+    /// let bigger_eq_half = (&value).map(|v| v >= 0.5);
+    ///
+    /// assert_eq!(bigger_eq_zero.pr(0.5), true);
+    /// assert_eq!(bigger_eq_half.pr(0.5), true); // this is true
+    ///
+    /// let expected_value = value.expect(0.1).unwrap();
+    /// assert_eq!(expected_value >= 0.0, true);
+    /// assert_eq!(expected_value >= 0.5, false); // but this is not :o
+    /// ```
+    ///
+    /// # Details
+    ///
+    /// To take as few samples as possible, this method utilizes an online sampling
+    /// strategy to compute estimates of the mean and variance of the distribution
+    /// modeled by the uncertain value.
+    ///
+    /// To determine if the mean has converged to the desired precision, the
+    /// variance of the estimate (i.e. `var(E(x))`) is computed, assuming
+    /// the samples are [identically and independently distributed][iid].
+    ///
+    /// The function returns if the [two sigma confidence interval][two-sigma] (i.e. `2 * sqrt(var(E(x)))`)
+    /// is smaller than the desired precision and the returned estimate lies within
+    /// plus/ minus precision of the true value with approximately `95%` probability.
+    ///
+    /// [iid]: https://en.wikipedia.org/wiki/Independent_and_identically_distributed_random_variables
+    /// [multi-modal]: https://en.wikipedia.org/wiki/Multimodal_distribution
+    /// [two-sigma]: https://en.wikipedia.org/wiki/68–95–99.7_rule
     fn expect(&self, precision: Self::Value) -> Result<Self::Value, ConvergenceError<Self::Value>>
     where
         Self::Value: Float,
