@@ -18,5 +18,5 @@ fn test_negative_pr_panics() {
 #[should_panic]
 fn test_nagative_expect_precision_panics() {
     let x = PointMass::new(0.0);
-    x.expect(-0.1);
+    x.expect(-0.1).ok();
 }

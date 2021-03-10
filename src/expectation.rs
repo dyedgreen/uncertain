@@ -7,6 +7,10 @@ use std::fmt;
 const STEP: usize = 10;
 const MAXS: usize = 1000;
 
+/// Information about a failed call to [`expect`](Uncertain::expect).
+///
+/// This struct allows introspection of a failed attempt to calculate
+/// the expected value of an [`Uncertain`](Uncertain).
 #[derive(Debug, Clone)]
 pub struct ConvergenceError<F>
 where
@@ -19,15 +23,35 @@ where
 }
 
 impl<F: Float> ConvergenceError<F> {
+    /// The expected value estimate obtained.
+    ///
+    /// This value is less precise than desired
+    /// and should be used with caution.
     pub fn non_converged_value(&self) -> F {
         self.sample_mean
     }
 
+    /// The two sigma confidence interval around the
+    /// computed value.
+    ///
+    /// # Details
+    ///
+    /// Mathematically, this is an estimate for the
+    /// standard deviation of the expected value, i.e.
+    /// `2 * sqrt(var(E(x)))`.
+    ///
+    /// This value is calculated under the assumption
+    /// that samples from the original [`Uncertain`](Uncertain)
+    /// are [identically and independently distributed][iid].
+    ///
+    /// [iid]: https://en.wikipedia.org/wiki/Independent_and_identically_distributed_random_variables
     pub fn two_sigma_error(&self) -> F {
         let std = mean_standard_deviation(self.diff_sum, self.steps);
         std + std
     }
 
+    /// The precision which was originally mandated by the
+    /// call to [`Uncertain::expect`](Uncertain::expect).
     pub fn desired_precision(&self) -> F {
         self.precision
     }
@@ -35,14 +59,12 @@ impl<F: Float> ConvergenceError<F> {
 
 impl<F: Float + fmt::Display> fmt::Display for ConvergenceError<F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let std = mean_standard_deviation(self.diff_sum, self.steps);
-        // TODO
         write!(
             f,
             "Expected value {} +/- {} did not converge to desired precision {}",
-            self.sample_mean,
-            std + std,
-            self.precision
+            self.non_converged_value(),
+            self.two_sigma_error(),
+            self.desired_precision()
         )
     }
 }
