@@ -1,4 +1,5 @@
 use rand_distr::{Normal, Poisson};
+use rand_pcg::Pcg32;
 use uncertain::*;
 
 #[test]
@@ -54,6 +55,22 @@ fn very_easy() {
     let x = Distribution::from(Normal::new(5.0, 2.0).unwrap()).into_ref();
     let y = (&x).sub(&x);
     assert_eq!(y.expect(0.01).unwrap(), 0.0);
+}
+
+#[test]
+fn very_hard() {
+    struct UncertainCounter;
+    impl Uncertain for UncertainCounter {
+        type Value = f64;
+
+        fn sample(&self, _: &mut Pcg32, epoch: usize) -> Self::Value {
+            epoch as f64
+        }
+    }
+
+    let c = UncertainCounter;
+    let mu = c.expect(0.1); // should not converge (!)
+    assert!(mu.is_err());
 }
 
 #[test]
