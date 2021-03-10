@@ -19,7 +19,18 @@ where
 }
 
 impl<F: Float> ConvergenceError<F> {
-    // TODO
+    pub fn non_converged_value(&self) -> F {
+        self.sample_mean
+    }
+
+    pub fn two_sigma_error(&self) -> F {
+        let std = mean_standard_deviation(self.diff_sum, self.steps);
+        std + std
+    }
+
+    pub fn desired_precision(&self) -> F {
+        self.precision
+    }
 }
 
 impl<F: Float + fmt::Display> fmt::Display for ConvergenceError<F> {
@@ -105,9 +116,45 @@ mod tests {
 
         let mu = compute(&x, 0.1);
         assert!(mu.is_err());
+        assert!(mu.err().unwrap().two_sigma_error() > 0.1);
 
         let mu = compute(&x, 100.0);
         assert!(mu.is_ok());
         assert!(mu.unwrap().abs() < 100.0);
+    }
+
+    #[test]
+    fn errors_are_correct() {
+        let cases: Vec<f64> = vec![1000.0, 5000.0, 10_000.0, 23452345.0, 23245.0];
+        for var in cases {
+            let x = Distribution::from(Normal::new(0.0, var).unwrap());
+            let err = x.expect(0.1);
+            assert!(err.is_err());
+            let err = err.err().unwrap();
+
+            // one sigma should be var(x) / sqrt(N), N = STEP * MAXS
+            // we do two sigma, so divide by two
+            let have_err = err.two_sigma_error() / 2.0;
+            let want_err = var / ((STEP * MAXS) as f64).sqrt();
+            let tolerance = 0.01; // plus minus 1%
+            assert!(
+                (have_err - want_err).abs() / want_err.abs() < tolerance,
+                "{} is not approximately {}",
+                have_err,
+                want_err
+            );
+
+            // the value reported by the error should still be good to
+            // within the reported two sigma interval
+            let val = err.non_converged_value();
+            assert!(
+                val.abs() < err.two_sigma_error(),
+                "{} is not close enough to 0",
+                val
+            );
+
+            // but the desired precision should not have been reached
+            assert!(err.two_sigma_error() > err.desired_precision());
+        }
     }
 }
