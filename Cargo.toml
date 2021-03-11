@@ -1,6 +1,6 @@
 [package]
 name = "uncertain"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Tilman Roeder"]
 edition = "2018"
 repository = "https://github.com/dyedgreen/uncertain"
