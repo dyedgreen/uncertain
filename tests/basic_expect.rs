@@ -76,10 +76,10 @@ fn very_hard() {
 #[test]
 fn composite_gaussian_poisson() {
     let g = Distribution::from(Normal::new(5.0, 2.0).unwrap());
-    let p = Distribution::from(Poisson::new(3.0).unwrap());
+    let p = Distribution::from(Poisson::new(3.0f64).unwrap());
     let s = g.add(p);
 
-    let mu = s.expect(0.1 as f64);
+    let mu = s.expect(0.1);
     assert!(mu.is_ok());
     assert!((mu.unwrap() - 8.0).abs() < 0.1);
 }
